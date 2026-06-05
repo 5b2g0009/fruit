@@ -1,5 +1,5 @@
 /**
- * Fruit Ninja HTML5 Canvas Game Engine
+ * Fruit Ninja HTML5 Canvas Game Engine (Fixed Speed and Delta Time Bug)
  */
 (function() {
   // Canvas and Context
@@ -12,6 +12,8 @@
   const SPAWN_INTERVAL = 2000; // ms
   const INITIAL_SPAWN_SPEED_Y = -12;
   const SPEED_MULTIPLIER = 1.05; // speed up game slightly as score increases
+  const SWIPE_SOUND_MIN_DISTANCE = 100; // 每累積滑動超過 70px 才播放一次揮刀音效
+  const SWIPE_SOUND_COOLDOWN = 140; // 揮刀音效冷卻時間，避免短時間過於密集
 
   // Game State Variables
   let isPlaying = false;
@@ -21,6 +23,7 @@
   let maxCombo = 0;
   let soundEnabled = true;
   let lastSpawnTime = 0;
+  let lastFrameTime = 0; // 【新增】用來記錄上一次繪製的時間戳記
 
   // Game Objects lists
   let fruits = [];
@@ -33,6 +36,8 @@
   let isDragging = false;
   let activeSwipeFruits = new Set(); // Sliced fruits during current drag event
   let comboTimer = null;
+  let lastSwipeSoundTime = 0;
+  let accumulatedSwipeDistance = 0;
 
   // Fruit Types and Properties
   const FRUIT_TYPES = {
@@ -117,16 +122,48 @@
       const now = audioCtx.currentTime;
 
       if (type === 'swoosh') {
-        // Drag Swoosh: Quick downward pitch slide
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(400, now);
-        osc.frequency.exponentialRampToValueAtTime(80, now + 0.15);
-        gainNode.gain.setValueAtTime(0.08, now);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-        osc.start(now);
-        osc.stop(now + 0.15);
+        // 更像划刀破風的聲音：短促白噪音 + 高通/帶通濾波掃頻。
+        // 原本 triangle 比較像電子音，白噪音濾波後會更像刀快速劃過空氣的「咻」。
+        const duration = 0.18;
+        const sampleRate = audioCtx.sampleRate;
+        const bufferSize = Math.floor(sampleRate * duration);
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+
+        for (let i = 0; i < bufferSize; i++) {
+          const t = i / bufferSize;
+          const fadeIn = Math.min(1, t / 0.12);
+          const fadeOut = Math.pow(1 - t, 1.8);
+          output[i] = (Math.random() * 2 - 1) * fadeIn * fadeOut;
+        }
+
+        const noise = audioCtx.createBufferSource();
+        const highPass = audioCtx.createBiquadFilter();
+        const bandPass = audioCtx.createBiquadFilter();
+        const swooshGain = audioCtx.createGain();
+
+        noise.buffer = noiseBuffer;
+
+        highPass.type = 'highpass';
+        highPass.frequency.setValueAtTime(650, now);
+
+        bandPass.type = 'bandpass';
+        bandPass.Q.setValueAtTime(1.1, now);
+        bandPass.frequency.setValueAtTime(2200, now);
+        bandPass.frequency.exponentialRampToValueAtTime(520, now + duration);
+
+        swooshGain.gain.setValueAtTime(0.0001, now);
+        swooshGain.gain.exponentialRampToValueAtTime(0.16, now + 0.035);
+        swooshGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+        noise.connect(highPass);
+        highPass.connect(bandPass);
+        bandPass.connect(swooshGain);
+        swooshGain.connect(audioCtx.destination);
+
+        noise.start(now);
+        noise.stop(now + duration);
       } else if (type === 'slice') {
-        // Fruit Slice: Short splat sound (high pitch noise + drop)
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(800, now);
         osc.frequency.exponentialRampToValueAtTime(150, now + 0.12);
@@ -135,7 +172,6 @@
         osc.start(now);
         osc.stop(now + 0.12);
       } else if (type === 'miss') {
-        // Missed fruit: Deep double tone alert
         osc.type = 'sine';
         osc.frequency.setValueAtTime(220, now);
         osc.frequency.setValueAtTime(180, now + 0.08);
@@ -144,12 +180,10 @@
         osc.start(now);
         osc.stop(now + 0.25);
       } else if (type === 'explosion') {
-        // Bomb Explosion: Low bass crash noise
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(150, now);
         osc.frequency.exponentialRampToValueAtTime(20, now + 0.6);
         
-        // Add a bandpass filter for rumble
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'bandpass';
         filter.frequency.setValueAtTime(100, now);
@@ -175,15 +209,16 @@
     if (!canvas) return;
     ctx = canvas.getContext('2d');
 
-    // UI Buttons
     const btnStart = document.getElementById('btnStartGame');
     const btnOverlayPlay = document.getElementById('btnOverlayPlay');
     const btnRestart = document.getElementById('btnRestartGame');
     const btnToggleSound = document.getElementById('btnToggleSound');
+    const btnFullscreen = document.getElementById('btnFullscreenGame');
     
     if (btnStart) btnStart.addEventListener('click', startGame);
     if (btnOverlayPlay) btnOverlayPlay.addEventListener('click', startGame);
     if (btnRestart) btnRestart.addEventListener('click', startGame);
+    if (btnFullscreen) btnFullscreen.addEventListener('click', toggleGameFullscreen);
 
     if (btnToggleSound) {
       btnToggleSound.addEventListener('click', () => {
@@ -194,89 +229,118 @@
       });
     }
 
-    // Set high score from local storage
     const storedHighScore = localStorage.getItem('fn_high_score') || 0;
     const gameHighScoreHUD = document.getElementById('gameHighScore');
     if (gameHighScoreHUD) gameHighScoreHUD.textContent = storedHighScore;
 
-    // Track canvas resizing
     window.addEventListener('resize', resizeGameCanvas);
+    document.addEventListener('fullscreenchange', updateFullscreenButton);
     resizeGameCanvas();
+    updateFullscreenButton();
 
-    // Mouse and Touch Listeners on Canvas
     setupInputListeners();
   });
+
+  function toggleGameFullscreen() {
+    const target = document.getElementById('gameFullscreenTarget') || canvas?.parentElement;
+    if (!target) return;
+
+    if (!document.fullscreenElement) {
+      target.requestFullscreen?.().catch(err => {
+        console.warn('Fullscreen request failed:', err);
+      });
+    } else {
+      document.exitFullscreen?.();
+    }
+  }
+
+  function updateFullscreenButton() {
+    const btnFullscreen = document.getElementById('btnFullscreenGame');
+    if (!btnFullscreen) return;
+
+    const isFullscreen = !!document.fullscreenElement;
+    btnFullscreen.innerHTML = isFullscreen
+      ? '<i class="fa-solid fa-compress"></i><span>退出全螢幕</span>'
+      : '<i class="fa-solid fa-expand"></i><span>全螢幕</span>';
+
+    // 等瀏覽器完成全螢幕尺寸切換後再更新 Canvas 顯示尺寸
+    requestAnimationFrame(resizeGameCanvas);
+  }
 
   function resizeGameCanvas() {
     if (!canvas) return;
     const container = canvas.parentElement;
     if (container) {
-      // Keep canvas resolution fixed at 800x500 but style scale handles screen fitting
-      const width = container.clientWidth;
       canvas.style.width = '100%';
       canvas.style.height = 'auto';
     }
   }
 
   function setupInputListeners() {
-    // Mouse Events
     canvas.addEventListener('mousedown', (e) => {
+      if (!isPlaying) return;
       isDragging = true;
       bladePoints = [];
       activeSwipeFruits.clear();
+      accumulatedSwipeDistance = 0;
       addBladePoint(e);
-      playSound('swoosh');
     });
 
     canvas.addEventListener('mousemove', (e) => {
       if (!isDragging || !isPlaying) return;
       addBladePoint(e);
-      
-      // Throttle swoosh sound
-      if (bladePoints.length % 5 === 0) {
-        playSound('swoosh');
-      }
-
+      maybePlaySwipeSound();
       checkSlices();
     });
 
     window.addEventListener('mouseup', () => {
+      if (!isDragging) return;
       isDragging = false;
+      accumulatedSwipeDistance = 0;
       evaluateCombo();
     });
 
-    // Touch Events (Mobile)
+    canvas.addEventListener('mouseleave', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      accumulatedSwipeDistance = 0;
+      evaluateCombo();
+    });
+
     canvas.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 0) return;
+      if (!isPlaying || e.touches.length === 0) return;
       isDragging = true;
       bladePoints = [];
       activeSwipeFruits.clear();
+      accumulatedSwipeDistance = 0;
       addBladePoint(e.touches[0]);
-      playSound('swoosh');
     });
 
     canvas.addEventListener('touchmove', (e) => {
       if (!isDragging || !isPlaying || e.touches.length === 0) return;
-      // Prevent scrolling when playing the game
       e.preventDefault();
       addBladePoint(e.touches[0]);
-      
-      if (bladePoints.length % 5 === 0) {
-        playSound('swoosh');
-      }
-      
+      maybePlaySwipeSound();
       checkSlices();
     }, { passive: false });
 
     canvas.addEventListener('touchend', () => {
+      if (!isDragging) return;
       isDragging = false;
+      accumulatedSwipeDistance = 0;
+      evaluateCombo();
+    });
+
+    canvas.addEventListener('touchcancel', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      accumulatedSwipeDistance = 0;
       evaluateCombo();
     });
   }
 
   function addBladePoint(e) {
     const rect = canvas.getBoundingClientRect();
-    // Translate client coordinates into Canvas logic space (800x500)
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
@@ -285,9 +349,28 @@
 
     bladePoints.push({ x, y, age: 0 });
 
-    // Keep trail short
     if (bladePoints.length > 15) {
       bladePoints.shift();
+    }
+  }
+
+  function maybePlaySwipeSound() {
+    if (bladePoints.length < 2) return;
+
+    const last = bladePoints[bladePoints.length - 1];
+    const previous = bladePoints[bladePoints.length - 2];
+    const dx = last.x - previous.x;
+    const dy = last.y - previous.y;
+    accumulatedSwipeDistance += Math.sqrt(dx * dx + dy * dy);
+
+    const now = performance.now();
+    if (
+      accumulatedSwipeDistance >= SWIPE_SOUND_MIN_DISTANCE &&
+      now - lastSwipeSoundTime >= SWIPE_SOUND_COOLDOWN
+    ) {
+      playSound('swoosh');
+      lastSwipeSoundTime = now;
+      accumulatedSwipeDistance = 0;
     }
   }
 
@@ -300,37 +383,34 @@
       this.isBomb = !!type.isBomb;
       this.points = type.points;
 
-      // Spawn at the bottom area, throw upwards
       this.x = Math.random() * (canvas.width - 200) + 100;
       this.y = canvas.height + this.radius;
 
-      // Velocity vectors
       const direction = this.x < canvas.width / 2 ? 1 : -1;
       this.vx = (Math.random() * 3 + 1) * direction;
       
-      // Calculate speed up based on score
-      const currentDifficultySpeed = INITIAL_SPAWN_SPEED_Y * Math.pow(SPEED_MULTIPLIER, Math.floor(score / 15));
-      this.vy = Math.random() * 3 + Math.max(-18, currentDifficultySpeed);
+      // 修正後的向上飛行速度公式 (確保重新開始時速度公式不崩潰)
+      const baseUpwardSpeed = Math.abs(INITIAL_SPAWN_SPEED_Y) * Math.pow(SPEED_MULTIPLIER, Math.floor(score / 15));
+      const cappedUpwardSpeed = Math.min(18, baseUpwardSpeed); 
+      this.vy = -(cappedUpwardSpeed + Math.random() * 3);
 
-      // Rotation settings
       this.angle = Math.random() * Math.PI * 2;
       this.rotationSpeed = (Math.random() * 0.06 - 0.03);
 
-      // Sliced halves variables
       this.halfL = null;
       this.halfR = null;
     }
 
-    update() {
+    // 接收來自 Game loop 的 timeScale 控制運動幅度
+    update(timeScale) {
       if (!this.isSliced) {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.vy += GRAVITY; // Apply gravity force
-        this.angle += this.rotationSpeed;
+        this.x += this.vx * timeScale;
+        this.y += this.vy * timeScale;
+        this.vy += GRAVITY * timeScale; 
+        this.angle += this.rotationSpeed * timeScale;
       } else {
-        // Update both split halves
-        if (this.halfL) this.halfL.update();
-        if (this.halfR) this.halfR.update();
+        if (this.halfL) this.halfL.update(timeScale);
+        if (this.halfR) this.halfR.update(timeScale);
       }
     }
 
@@ -348,7 +428,6 @@
 
         ctx.restore();
       } else {
-        // Draw both split halves
         if (this.halfL) this.halfL.draw();
         if (this.halfR) this.halfR.draw();
       }
@@ -359,24 +438,19 @@
       this.isSliced = true;
 
       if (this.isBomb) {
-        // Trigger explosion particles and game over
         playSound('explosion');
         createExplosionParticles(this.x, this.y);
         gameOver();
         return;
       }
 
-      // Add to combo tracker
       activeSwipeFruits.add(this);
-
       playSound('slice');
       slicedCount++;
 
-      // Create juice particles and splatters
       createJuiceParticles(this.x, this.y, this.type.splatColor);
       createSplatter(this.x, this.y, this.type.splatColor);
 
-      // Generate left and right halves
       this.halfL = new SlicedHalf(this.x, this.y, this.radius, this.type, 'left', this.vx - 3.5, this.vy - 1);
       this.halfR = new SlicedHalf(this.x, this.y, this.radius, this.type, 'right', this.vx + 3.5, this.vy - 1);
     }
@@ -389,7 +463,7 @@
       this.y = y;
       this.radius = radius;
       this.type = type;
-      this.side = side; // 'left' or 'right'
+      this.side = side; 
       this.vx = vx;
       this.vy = vy;
       this.angle = Math.random() * Math.PI * 2;
@@ -397,12 +471,12 @@
       this.opacity = 1.0;
     }
 
-    update() {
-      this.x += this.vx;
-      this.y += this.vy;
-      this.vy += GRAVITY * 1.1; // Sliced pieces fall slightly faster
-      this.angle += this.rotationSpeed;
-      this.opacity -= 0.015; // Fade out slowly
+    update(timeScale) {
+      this.x += this.vx * timeScale;
+      this.y += this.vy * timeScale;
+      this.vy += (GRAVITY * 1.1) * timeScale; 
+      this.angle += this.rotationSpeed * timeScale;
+      this.opacity -= 0.015 * timeScale; 
     }
 
     draw() {
@@ -413,7 +487,6 @@
       ctx.translate(this.x, this.y);
       ctx.rotate(this.angle);
 
-      // Draw semi-circle to represent cut fruit
       ctx.beginPath();
       if (this.side === 'left') {
         ctx.arc(0, 0, this.radius, Math.PI * 0.5, Math.PI * 1.5, false);
@@ -423,10 +496,8 @@
       ctx.closePath();
       ctx.clip();
 
-      // Render fruit graphic within the semi-circle clip bounds
       drawFruitGraphic(ctx, this.type, this.radius);
 
-      // Draw shiny white divider line down the sliced edge
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -451,11 +522,11 @@
       this.decay = Math.random() * 0.03 + 0.02;
     }
 
-    update() {
-      this.x += this.vx;
-      this.y += this.vy;
-      this.vy += GRAVITY * 0.8;
-      this.opacity -= this.decay;
+    update(timeScale) {
+      this.x += this.vx * timeScale;
+      this.y += this.vy * timeScale;
+      this.vy += (GRAVITY * 0.8) * timeScale;
+      this.opacity -= this.decay * timeScale;
     }
 
     draw() {
@@ -477,10 +548,9 @@
       this.color = color;
       this.radius = Math.random() * 30 + 15;
       this.opacity = 0.9;
-      this.decay = 0.0015; // Splatters stay on background for a very long time
-      this.splats = []; // Sub-drops for irregular shape
+      this.decay = 0.0015; 
+      this.splats = []; 
 
-      // Create random blobs around center
       for (let i = 0; i < 6; i++) {
         this.splats.push({
           rx: Math.random() * 20 - 10,
@@ -490,8 +560,8 @@
       }
     }
 
-    update() {
-      this.opacity -= this.decay;
+    update(timeScale) {
+      this.opacity -= this.decay * timeScale;
     }
 
     draw() {
@@ -500,12 +570,10 @@
       ctx.globalAlpha = this.opacity;
       ctx.fillStyle = this.color;
       
-      // Draw main blob
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
       ctx.fill();
 
-      // Draw satellite blobs
       this.splats.forEach(s => {
         ctx.beginPath();
         ctx.arc(this.x + s.rx, this.y + s.ry, s.rad, 0, Math.PI * 2);
@@ -527,10 +595,10 @@
       this.scale = 1.0;
     }
 
-    update() {
-      this.y += this.vy;
-      this.opacity -= 0.02;
-      this.scale += 0.01;
+    update(timeScale) {
+      this.y += this.vy * timeScale;
+      this.opacity -= 0.02 * timeScale;
+      this.scale += 0.01 * timeScale;
     }
 
     draw() {
@@ -554,22 +622,18 @@
   // --- Visual Rendering Helpers ---
   function drawFruitGraphic(c, type, r) {
     if (type.name === 'watermelon') {
-      // Outer shell
       c.fillStyle = type.colorOuter;
       c.beginPath();
       c.arc(0, 0, r, 0, Math.PI * 2);
       c.fill();
-      // Inner rind
       c.fillStyle = '#ffffff';
       c.beginPath();
       c.arc(0, 0, r - 4, 0, Math.PI * 2);
       c.fill();
-      // Red core
       c.fillStyle = type.colorInner;
       c.beginPath();
       c.arc(0, 0, r - 7, 0, Math.PI * 2);
       c.fill();
-      // Seeds
       c.fillStyle = type.colorSeed;
       const seedR = 2.5;
       const seedOffsets = [[-12, -8], [12, -8], [-5, 12], [5, 12], [-15, 8], [15, 8], [0, -18]];
@@ -580,38 +644,29 @@
       });
     } 
     else if (type.name === 'apple') {
-      // Apple body
       c.fillStyle = type.colorOuter;
       c.beginPath();
-      // Heart-ish shape
       c.arc(-r/3, -r/10, r * 0.75, 0, Math.PI * 2);
       c.arc(r/3, -r/10, r * 0.75, 0, Math.PI * 2);
       c.fill();
-      // Flesh inside slice look (for texture)
       c.fillStyle = type.colorInner;
       c.beginPath();
       c.arc(0, 0, r - 6, 0, Math.PI * 2);
       c.fill();
-      // Core seed
       c.fillStyle = type.colorSeed;
       c.beginPath();
       c.ellipse(0, 0, 3, 5, 0, 0, Math.PI * 2);
       c.fill();
     } 
     else if (type.name === 'orange') {
-      // Outer skin
       c.fillStyle = type.colorOuter;
       c.beginPath();
       c.arc(0, 0, r, 0, Math.PI * 2);
       c.fill();
-      
-      // Inside white segments layer
       c.fillStyle = '#ffffff';
       c.beginPath();
       c.arc(0, 0, r - 3, 0, Math.PI * 2);
       c.fill();
-
-      // Orange slices
       c.fillStyle = type.colorInner;
       for (let i = 0; i < 8; i++) {
         c.beginPath();
@@ -622,15 +677,12 @@
       }
     } 
     else if (type.name === 'banana') {
-      // Banana curve simulation
       c.fillStyle = type.colorOuter;
       c.beginPath();
       c.arc(0, 10, r * 1.5, Math.PI * 1.25, Math.PI * 1.75);
       c.arc(0, 22, r * 1.5, Math.PI * 1.75, Math.PI * 1.25, true);
       c.closePath();
       c.fill();
-      
-      // Inner cream highlights
       c.fillStyle = type.colorInner;
       c.beginPath();
       c.arc(0, 14, r * 1.3, Math.PI * 1.28, Math.PI * 1.72);
@@ -639,17 +691,14 @@
       c.fill();
     } 
     else if (type.name === 'coconut') {
-      // Brown shell
       c.fillStyle = type.colorOuter;
       c.beginPath();
       c.arc(0, 0, r, 0, Math.PI * 2);
       c.fill();
-      // White meat
       c.fillStyle = type.colorInner;
       c.beginPath();
       c.arc(0, 0, r - 5, 0, Math.PI * 2);
       c.fill();
-      // Hollow center (transparent space filled with grey background shading)
       c.fillStyle = '#1e1c18';
       c.beginPath();
       c.arc(0, 0, r - 12, 0, Math.PI * 2);
@@ -658,7 +707,6 @@
   }
 
   function drawBomb(c, r) {
-    // Metal body
     const grad = c.createRadialGradient(-5, -5, 2, 0, 0, r);
     grad.addColorStop(0, '#555555');
     grad.addColorStop(0.7, '#222222');
@@ -669,18 +717,15 @@
     c.arc(0, 0, r, 0, Math.PI * 2);
     c.fill();
 
-    // Fuse connector cap
     c.fillStyle = '#444444';
     c.fillRect(-6, -r - 4, 12, 5);
 
-    // Sparkling fuse curve
     c.strokeStyle = '#b8860b';
     c.lineWidth = 3;
     c.beginPath();
     c.arc(10, -r - 12, 12, Math.PI, Math.PI * 1.8, false);
     c.stroke();
 
-    // Spark star
     c.fillStyle = '#ffcc00';
     c.shadowColor = '#ff3300';
     c.shadowBlur = 10;
@@ -703,7 +748,6 @@
     c.fill();
   }
 
-  // --- Visual Generation Controllers ---
   function createJuiceParticles(x, y, color) {
     const numParticles = Math.floor(Math.random() * 8) + 10;
     for (let i = 0; i < numParticles; i++) {
@@ -712,7 +756,6 @@
   }
 
   function createExplosionParticles(x, y) {
-    // Large dramatic flash effect for bomb hits
     const numParticles = 40;
     const colors = ['#ffffff', '#ffcc00', '#ff3300', '#333333'];
     for (let i = 0; i < numParticles; i++) {
@@ -723,19 +766,15 @@
       p.vy = Math.random() * 20 - 10;
       particles.push(p);
     }
-
     floatingTexts.push(new FloatingText(x, y - 20, 'BOOM!', '#ff3b30'));
   }
 
   function createSplatter(x, y, color) {
-    // Keep max splatters low so memory stays clear
     if (splatters.length > 8) {
       splatters.shift();
     }
     splatters.push(new Splatter(x, y, color));
   }
-
-  // --- Game Loop Update and Slicing Checking ---
 
   function checkSlices() {
     if (bladePoints.length < 2) return;
@@ -745,8 +784,6 @@
 
     fruits.forEach(f => {
       if (f.isSliced) return;
-
-      // Distance checking: Check if the drag line segment intersects with the fruit's circular boundaries
       if (lineIntersectsCircle(p1.x, p1.y, p2.x, p2.y, f.x, f.y, f.radius)) {
         f.slice();
         if (!f.isBomb) {
@@ -757,33 +794,22 @@
     });
   }
 
-  // Segment distance intersection algorithm
   function lineIntersectsCircle(x1, y1, x2, y2, cx, cy, r) {
     const dx = x2 - x1;
     const dy = y2 - y1;
-    
-    // Length squared of segment
     const lenSq = dx * dx + dy * dy;
     if (lenSq === 0) {
       const distSq = (x1 - cx) * (x1 - cx) + (y1 - cy) * (y1 - cy);
       return distSq <= r * r;
     }
-
-    // Projection coefficient t
     let t = ((cx - x1) * dx + (cy - y1) * dy) / lenSq;
-    // Clamp to segment range
     t = Math.max(0, Math.min(1, t));
-
-    // Project point on segment
     const closestX = x1 + t * dx;
     const closestY = y1 + t * dy;
-
-    // Distance squared from circle center to closest point
     const distSq = (closestX - cx) * (closestX - cx) + (closestY - cy) * (closestY - cy);
     return distSq <= r * r;
   }
 
-  // Evaluate combo scores once dragging ends
   function evaluateCombo() {
     if (activeSwipeFruits.size >= 3) {
       const size = activeSwipeFruits.size;
@@ -799,7 +825,6 @@
         maxCombo = size;
       }
 
-      // Grab mid point of sliced fruits for text popup
       let avgX = 0;
       let avgY = 0;
       activeSwipeFruits.forEach(f => {
@@ -815,18 +840,10 @@
     activeSwipeFruits.clear();
   }
 
-  // HUD Score & Hearts Updater
-  function updateHUD() {
-    // Current HUD outputs
-    const elements = document.getElementsByClassName('hud-val');
-    // Canvas HUD is rendered in game loop, HTML overlay scores updated below
-  }
+  function updateHUD() {}
 
-  // Spawns new batches of fruits
   function spawnFruits() {
-    const batchCount = Math.floor(Math.random() * 3) + 1; // 1 to 3 items
-    
-    // Chance of throwing a bomb decreases as score decreases, max 30% chance above 20 score
+    const batchCount = Math.floor(Math.random() * 3) + 1; 
     const bombThreshold = score < 10 ? 0.05 : (score < 25 ? 0.15 : 0.25);
 
     for (let i = 0; i < batchCount; i++) {
@@ -839,27 +856,37 @@
         const types = [FRUIT_TYPES.WATERMELON, FRUIT_TYPES.APPLE, FRUIT_TYPES.ORANGE, FRUIT_TYPES.BANANA, FRUIT_TYPES.COCONUT];
         type = types[Math.floor(Math.random() * types.length)];
       }
-
       fruits.push(new Fruit(type));
     }
   }
 
-  // Main Canvas Render loop
+  // --- Main Canvas Render loop (Delta Time Control) ---
   function drawGame(timestamp) {
     if (!isPlaying) return;
 
-    // Clear Canvas and paint transparent wood backdrop grid
+    // 1. 初始化與防錯時間基線
+    if (!lastFrameTime) lastFrameTime = timestamp;
+    if (!lastSpawnTime) lastSpawnTime = timestamp;
+
+    // 計算當前影格與上一影格的時間差 (毫秒)
+    let deltaTime = timestamp - lastFrameTime;
+    lastFrameTime = timestamp;
+
+    // 2. 【核心防線】切換視窗睡眠重啟時，限制異常的 deltaTime 垃圾值
+    if (deltaTime > 33) {
+      deltaTime = 16.66; // 修正回標準的 60 FPS 間隔
+    }
+
+    // 計算當前畫面的速度步伐比例 (若穩定 60fps 則 timeScale 為 1)
+    const timeScale = deltaTime / 16.66;
+
+    // 3. 清理與重置畫布，繪製背景背景血跡
     ctx.fillStyle = '#11131a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Draw splatters under game objects
     splatters.forEach(s => s.draw());
 
-    // Spawn mechanism timer
-    if (!lastSpawnTime) lastSpawnTime = timestamp;
+    // 4. 水果生成機制計時
     const timeElapsed = timestamp - lastSpawnTime;
-    
-    // Scale spawn delay slightly with score
     const currentSpawnDelay = Math.max(1000, SPAWN_INTERVAL - (score * 12));
     
     if (timeElapsed >= currentSpawnDelay) {
@@ -867,25 +894,22 @@
       lastSpawnTime = timestamp;
     }
 
-    // Update & Draw splatters decay
-    splatters.forEach(s => s.update());
+    // 5. 更新背景血跡與生命期
+    splatters.forEach(s => s.update(timeScale));
     splatters = splatters.filter(s => s.opacity > 0);
 
-    // Update & Draw Game elements (Fruits, Splitted halves)
+    // 6. 依據 timeScale 移動並更新所有水果
     fruits.forEach(f => {
-      f.update();
+      f.update(timeScale);
       f.draw();
     });
 
-    // Check for missed fruits (falling below canvas bounds)
+    // 7. 檢查漏接掉落的水果 (加上 y 軸緩衝防止邊緣誤判)
     fruits.forEach(f => {
-      if (!f.isSliced && !f.isBomb && f.y > canvas.height + f.radius + 10 && f.vy > 0) {
-        // Play miss alert & deduct heart
+      if (!f.isSliced && !f.isBomb && f.y > canvas.height + f.radius + 20 && f.vy > 0) {
         playSound('miss');
         lives--;
-        f.isSliced = true; // Mark as sliced to avoid double deduction
-        
-        // Spawn red floating cross
+        f.isSliced = true; 
         floatingTexts.push(new FloatingText(f.x, canvas.height - 40, 'MISS X', '#ff3b30'));
 
         if (lives <= 0) {
@@ -894,35 +918,32 @@
       }
     });
 
-    // Filter out entities off-screen
+    // 8. 过滤回收掉落出螢幕外的水果
     fruits = fruits.filter(f => {
       if (!f.isSliced) return f.y < canvas.height + f.radius + 50;
-      // If sliced, keep rendering until halves fade out completely
       if (f.halfL && f.halfL.opacity <= 0) return false;
       return true;
     });
 
-    // Update & Draw Juice particles
+    // 9. 更新並繪製果汁粒子與噴濺效果
     particles.forEach(p => {
-      p.update();
+      p.update(timeScale);
       p.draw();
     });
     particles = particles.filter(p => p.opacity > 0);
 
-    // Update & Draw floating text indicators
+    // 10. 更新並繪製 Combo 與 Miss 漂浮文字
     floatingTexts.forEach(t => {
-      t.update();
+      t.update(timeScale);
       t.draw();
     });
     floatingTexts = floatingTexts.filter(t => t.opacity > 0);
 
-    // Draw Blade Slash Trail
+    // 11. 繪製刀光軌跡與數據 HUD
     drawBladeTrail();
-
-    // Draw on-screen HUD graphics (Hearts and Scores overlay on top of Canvas)
     drawCanvasHUD();
 
-    // Call loop recursively
+    // 遞迴請求下一影格
     animationFrameId = requestAnimationFrame(drawGame);
   }
 
@@ -930,8 +951,6 @@
     if (bladePoints.length < 2) return;
 
     ctx.save();
-    
-    // Draw thick outer neon blade shadow
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.shadowColor = '#00f2fe';
     ctx.shadowBlur = 15;
@@ -945,7 +964,6 @@
     }
     ctx.stroke();
 
-    // Draw thin bright core blade
     ctx.strokeStyle = '#ffffff';
     ctx.shadowBlur = 0;
     ctx.lineWidth = 3;
@@ -955,15 +973,12 @@
       ctx.lineTo(bladePoints[i].x, bladePoints[i].y);
     }
     ctx.stroke();
-
     ctx.restore();
 
-    // Age trail points
     bladePoints.forEach(p => p.age++);
   }
 
   function drawCanvasHUD() {
-    // Draw Score
     ctx.save();
     ctx.fillStyle = '#ffffff';
     ctx.font = '800 28px Outfit';
@@ -973,7 +988,6 @@
     ctx.shadowBlur = 4;
     ctx.fillText(`SCORE: ${score}`, 24, 20);
 
-    // Draw Hearts for Lives
     ctx.textAlign = 'right';
     const heartSpacing = 35;
     const startHeartX = canvas.width - 24;
@@ -985,24 +999,24 @@
       ctx.shadowBlur = i < lives ? 8 : 0;
       ctx.shadowColor = '#ff3b30';
       
-      // Draw Unicode heart character or SVG path shape
       ctx.font = '24px "Font Awesome 6 Free"';
       ctx.fontWeight = '900';
-      ctx.fillText(i < lives ? '\f004' : '\f004', hx, heartY - 12);
+      ctx.fillText(i < lives ? '❤' : '❤', hx, heartY - 12);
     }
-
     ctx.restore();
   }
 
   // --- Start & End Game controllers ---
-
   function startGame() {
     initAudio();
+    
+    // 清除任何潛在重複疊加的舊動畫線程
     if (animationFrameId) {
       cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
     }
 
-    // Reset scores & vectors
+    // 重設遊戲引擎狀態
     score = 0;
     lives = 3;
     slicedCount = 0;
@@ -1012,15 +1026,16 @@
     splatters = [];
     bladePoints = [];
     floatingTexts = [];
-    lastSpawnTime = 0;
-
+    
+    // 重要：重啟時完全洗掉舊時間戳記
+    lastFrameTime = 0; 
+    lastSpawnTime = performance.now(); 
     isPlaying = true;
 
-    // Toggle overlay visibility
     document.getElementById('gameStartOverlay').classList.add('hidden');
     document.getElementById('gameOverOverlay').classList.add('hidden');
 
-    // Start frame loop
+    // 重新拉起渲染迴圈
     animationFrameId = requestAnimationFrame(drawGame);
   }
 
@@ -1028,7 +1043,6 @@
     isPlaying = false;
     cancelAnimationFrame(animationFrameId);
 
-    // Update high scores stored in browser local storage
     const currentHigh = parseInt(localStorage.getItem('fn_high_score') || '0');
     if (score > currentHigh) {
       localStorage.setItem('fn_high_score', score.toString());
@@ -1036,7 +1050,6 @@
       if (gameHighScoreHUD) gameHighScoreHUD.textContent = score;
     }
 
-    // Display Game Over Overlay and scores
     document.getElementById('gameOverOverlay').classList.remove('hidden');
     document.getElementById('finalScoreVal').textContent = score;
     document.getElementById('finalSlicedVal').textContent = slicedCount;
@@ -1045,8 +1058,7 @@
     const submissionStatus = document.getElementById('submissionStatus');
     if (!submissionStatus) return;
 
-    // Check if user is logged in
-    if (window.appState.isLoggedIn) {
+    if (window.appState && window.appState.isLoggedIn) {
       submissionStatus.innerHTML = `<span class="neon-text-blue"><i class="fa-solid fa-spinner fa-spin"></i> 正在上傳分數至排行榜...</span>`;
 
       try {
@@ -1064,14 +1076,9 @@
         });
 
         const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || '上傳失敗');
-        }
+        if (!response.ok) throw new Error(data.error || '上傳失敗');
 
         submissionStatus.innerHTML = `<span class="neon-text-green"><i class="fa-solid fa-cloud-arrow-up"></i> 分數上傳成功！</span>`;
-        
-        // Refresh leaderboard list automatically
         if (typeof window.fetchLeaderboard === 'function') {
           window.fetchLeaderboard();
         }
@@ -1079,10 +1086,9 @@
         submissionStatus.innerHTML = `<span class="neon-text-red"><i class="fa-solid fa-circle-xmark"></i> 上傳失敗：${err.message}</span>`;
       }
     } else {
-      submissionStatus.innerHTML = `<span class="text-muted"><i class="fa-solid fa-right-to-bracket"></i> <a href="#leaderboard" style="color:var(--neon-blue);text-decoration:underline;">登入帳號</a> 即可自動上傳高分至排行榜！</span>`;
+      submissionStatus.innerHTML = `<span class="text-muted"><i class="fa-solid fa-right-to-bracket"></i> 登入帳號即可自動上傳高分！</span>`;
     }
   }
 
-  // Expose function to trigger resize
   window.resizeGameCanvas = resizeGameCanvas;
 })();

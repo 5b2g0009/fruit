@@ -211,7 +211,11 @@
         <!-- Game Column 2: Canvas Area -->
         <div class="game-canvas-wrapper">
           <div class="canvas-glow"></div>
-          <div class="canvas-container">
+          <div class="canvas-container" id="gameFullscreenTarget">
+            <button class="fullscreen-btn" id="btnFullscreenGame" type="button" aria-label="切換全螢幕">
+              <i class="fa-solid fa-expand"></i>
+              <span>全螢幕</span>
+            </button>
             <canvas id="gameCanvas" width="800" height="500"></canvas>
             
             <!-- Game Splash / Start Overlay -->
