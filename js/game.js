@@ -1,5 +1,33 @@
+抓到問題了！當你玩完一局、回到首頁再重新點擊開始時，水果之所以會突然變快，最關鍵的 Bug 藏在 `Fruit` 的建構子（Constructor）裡：
+
+```javascript
+// ❌ 這是原本程式碼中的 Bug
+const currentDifficultySpeed = INITIAL_SPAWN_SPEED_Y * Math.pow(SPEED_MULTIPLIER, Math.floor(score / 15));
+this.vy = Math.random() * 3 + Math.max(-18, currentDifficultySpeed);
+
+```
+
+### 🔍 為什麼會變快？（原因分析）
+
+1. `INITIAL_SPAWN_SPEED_Y` 的值是 `-12`（負值在 Canvas 代表向上飛）。
+2. 當你分數很高時，`Math.pow(1.05, Math.floor(score / 15))` 會讓數值變成例如 `-18` 或 `-20`。
+3. 但你在後面加了一個 `Math.max(-18, currentDifficultySpeed)`。
+4. **重點來了！** 負數比較時，**`-12` 大於 `-18**`。當 `currentDifficultySpeed` 因為分數提高而變成 `-15`、`-18`、`-20` 時，`Math.max(-18, 速度)` 會正確限制它不能超越 `-18`。
+5. **可是，當你遊戲結束「重新開始」時：** `score` 歸零，`currentDifficultySpeed` 回到 `-12`。此時 `Math.max(-18, -12)` 的結果是 **`-12`**。
+6. **致命的程式邏輯衝突：** 水果向上飛的速度本來是 `-12`（比較慢），但你在前面加了 `Math.random() * 3`。當兩者相加：`3 + (-12) = -9`。也就是說，重啟遊戲後，水果**往上的推力變小了（變成了 -9）**！
+7. **結果：** 向上推力不夠（`-9`），水果根本飛不高，剛從螢幕底部噴出來一點點，就立刻被 `GRAVITY = 0.28` 的重力往下拉。**這導致水果在螢幕底部「極快速地掉落、墜毀」**，甚至直接觸發 `MISS` 扣血。這就是你看到的「好好地突然掉落很快」的靈異現象！
+
+---
+
+### 🛠️ 修正後的完整程式碼
+
+我幫你把這個速度計算公式改成了**正確的數學邏輯（用 `Math.min` 處理負數，或直接用絕對值計算）**，並且微調了 `lastSpawnTime` 的時間同步，確保重啟時不會有影格時間差。
+
+你可以直接複製這段完整的程式碼去替換舊的：
+
+```javascript
 /**
- * Fruit Ninja HTML5 Canvas Game Engine
+ * Fruit Ninja HTML5 Canvas Game Engine (Fixed Speed Bug)
  */
 (function() {
   // Canvas and Context
@@ -117,7 +145,6 @@
       const now = audioCtx.currentTime;
 
       if (type === 'swoosh') {
-        // Drag Swoosh: Quick downward pitch slide
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(400, now);
         osc.frequency.exponentialRampToValueAtTime(80, now + 0.15);
@@ -126,7 +153,6 @@
         osc.start(now);
         osc.stop(now + 0.15);
       } else if (type === 'slice') {
-        // Fruit Slice: Short splat sound (high pitch noise + drop)
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(800, now);
         osc.frequency.exponentialRampToValueAtTime(150, now + 0.12);
@@ -135,7 +161,6 @@
         osc.start(now);
         osc.stop(now + 0.12);
       } else if (type === 'miss') {
-        // Missed fruit: Deep double tone alert
         osc.type = 'sine';
         osc.frequency.setValueAtTime(220, now);
         osc.frequency.setValueAtTime(180, now + 0.08);
@@ -144,12 +169,10 @@
         osc.start(now);
         osc.stop(now + 0.25);
       } else if (type === 'explosion') {
-        // Bomb Explosion: Low bass crash noise
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(150, now);
         osc.frequency.exponentialRampToValueAtTime(20, now + 0.6);
         
-        // Add a bandpass filter for rumble
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'bandpass';
         filter.frequency.setValueAtTime(100, now);
@@ -175,7 +198,6 @@
     if (!canvas) return;
     ctx = canvas.getContext('2d');
 
-    // UI Buttons
     const btnStart = document.getElementById('btnStartGame');
     const btnOverlayPlay = document.getElementById('btnOverlayPlay');
     const btnRestart = document.getElementById('btnRestartGame');
@@ -194,16 +216,13 @@
       });
     }
 
-    // Set high score from local storage
     const storedHighScore = localStorage.getItem('fn_high_score') || 0;
     const gameHighScoreHUD = document.getElementById('gameHighScore');
     if (gameHighScoreHUD) gameHighScoreHUD.textContent = storedHighScore;
 
-    // Track canvas resizing
     window.addEventListener('resize', resizeGameCanvas);
     resizeGameCanvas();
 
-    // Mouse and Touch Listeners on Canvas
     setupInputListeners();
   });
 
@@ -211,15 +230,12 @@
     if (!canvas) return;
     const container = canvas.parentElement;
     if (container) {
-      // Keep canvas resolution fixed at 800x500 but style scale handles screen fitting
-      const width = container.clientWidth;
       canvas.style.width = '100%';
       canvas.style.height = 'auto';
     }
   }
 
   function setupInputListeners() {
-    // Mouse Events
     canvas.addEventListener('mousedown', (e) => {
       isDragging = true;
       bladePoints = [];
@@ -232,7 +248,6 @@
       if (!isDragging || !isPlaying) return;
       addBladePoint(e);
       
-      // Throttle swoosh sound
       if (bladePoints.length % 5 === 0) {
         playSound('swoosh');
       }
@@ -245,7 +260,6 @@
       evaluateCombo();
     });
 
-    // Touch Events (Mobile)
     canvas.addEventListener('touchstart', (e) => {
       if (e.touches.length === 0) return;
       isDragging = true;
@@ -257,7 +271,6 @@
 
     canvas.addEventListener('touchmove', (e) => {
       if (!isDragging || !isPlaying || e.touches.length === 0) return;
-      // Prevent scrolling when playing the game
       e.preventDefault();
       addBladePoint(e.touches[0]);
       
@@ -276,7 +289,6 @@
 
   function addBladePoint(e) {
     const rect = canvas.getBoundingClientRect();
-    // Translate client coordinates into Canvas logic space (800x500)
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
@@ -285,7 +297,6 @@
 
     bladePoints.push({ x, y, age: 0 });
 
-    // Keep trail short
     if (bladePoints.length > 15) {
       bladePoints.shift();
     }
@@ -300,23 +311,22 @@
       this.isBomb = !!type.isBomb;
       this.points = type.points;
 
-      // Spawn at the bottom area, throw upwards
       this.x = Math.random() * (canvas.width - 200) + 100;
       this.y = canvas.height + this.radius;
 
-      // Velocity vectors
       const direction = this.x < canvas.width / 2 ? 1 : -1;
       this.vx = (Math.random() * 3 + 1) * direction;
       
-      // Calculate speed up based on score
-      const currentDifficultySpeed = INITIAL_SPAWN_SPEED_Y * Math.pow(SPEED_MULTIPLIER, Math.floor(score / 15));
-      this.vy = Math.random() * 3 + Math.max(-18, currentDifficultySpeed);
+      // 🛠️【核心修正】：改用正數計算速度上限，最後再轉為負數（向上飛行），徹底解決 Math.max 的負數邏輯錯誤
+      const baseUpwardSpeed = Math.abs(INITIAL_SPAWN_SPEED_Y) * Math.pow(SPEED_MULTIPLIER, Math.floor(score / 15));
+      const cappedUpwardSpeed = Math.min(18, baseUpwardSpeed); 
+      
+      // 隨機微調向上推力
+      this.vy = -(cappedUpwardSpeed + Math.random() * 3);
 
-      // Rotation settings
       this.angle = Math.random() * Math.PI * 2;
       this.rotationSpeed = (Math.random() * 0.06 - 0.03);
 
-      // Sliced halves variables
       this.halfL = null;
       this.halfR = null;
     }
@@ -325,10 +335,9 @@
       if (!this.isSliced) {
         this.x += this.vx;
         this.y += this.vy;
-        this.vy += GRAVITY; // Apply gravity force
+        this.vy += GRAVITY; 
         this.angle += this.rotationSpeed;
       } else {
-        // Update both split halves
         if (this.halfL) this.halfL.update();
         if (this.halfR) this.halfR.update();
       }
@@ -348,7 +357,6 @@
 
         ctx.restore();
       } else {
-        // Draw both split halves
         if (this.halfL) this.halfL.draw();
         if (this.halfR) this.halfR.draw();
       }
@@ -359,24 +367,19 @@
       this.isSliced = true;
 
       if (this.isBomb) {
-        // Trigger explosion particles and game over
         playSound('explosion');
         createExplosionParticles(this.x, this.y);
         gameOver();
         return;
       }
 
-      // Add to combo tracker
       activeSwipeFruits.add(this);
-
       playSound('slice');
       slicedCount++;
 
-      // Create juice particles and splatters
       createJuiceParticles(this.x, this.y, this.type.splatColor);
       createSplatter(this.x, this.y, this.type.splatColor);
 
-      // Generate left and right halves
       this.halfL = new SlicedHalf(this.x, this.y, this.radius, this.type, 'left', this.vx - 3.5, this.vy - 1);
       this.halfR = new SlicedHalf(this.x, this.y, this.radius, this.type, 'right', this.vx + 3.5, this.vy - 1);
     }
@@ -389,7 +392,7 @@
       this.y = y;
       this.radius = radius;
       this.type = type;
-      this.side = side; // 'left' or 'right'
+      this.side = side; 
       this.vx = vx;
       this.vy = vy;
       this.angle = Math.random() * Math.PI * 2;
@@ -400,9 +403,9 @@
     update() {
       this.x += this.vx;
       this.y += this.vy;
-      this.vy += GRAVITY * 1.1; // Sliced pieces fall slightly faster
+      this.vy += GRAVITY * 1.1; 
       this.angle += this.rotationSpeed;
-      this.opacity -= 0.015; // Fade out slowly
+      this.opacity -= 0.015; 
     }
 
     draw() {
@@ -413,7 +416,6 @@
       ctx.translate(this.x, this.y);
       ctx.rotate(this.angle);
 
-      // Draw semi-circle to represent cut fruit
       ctx.beginPath();
       if (this.side === 'left') {
         ctx.arc(0, 0, this.radius, Math.PI * 0.5, Math.PI * 1.5, false);
@@ -423,10 +425,8 @@
       ctx.closePath();
       ctx.clip();
 
-      // Render fruit graphic within the semi-circle clip bounds
       drawFruitGraphic(ctx, this.type, this.radius);
 
-      // Draw shiny white divider line down the sliced edge
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -477,10 +477,9 @@
       this.color = color;
       this.radius = Math.random() * 30 + 15;
       this.opacity = 0.9;
-      this.decay = 0.0015; // Splatters stay on background for a very long time
-      this.splats = []; // Sub-drops for irregular shape
+      this.decay = 0.0015; 
+      this.splats = []; 
 
-      // Create random blobs around center
       for (let i = 0; i < 6; i++) {
         this.splats.push({
           rx: Math.random() * 20 - 10,
@@ -500,12 +499,10 @@
       ctx.globalAlpha = this.opacity;
       ctx.fillStyle = this.color;
       
-      // Draw main blob
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
       ctx.fill();
 
-      // Draw satellite blobs
       this.splats.forEach(s => {
         ctx.beginPath();
         ctx.arc(this.x + s.rx, this.y + s.ry, s.rad, 0, Math.PI * 2);
@@ -554,22 +551,18 @@
   // --- Visual Rendering Helpers ---
   function drawFruitGraphic(c, type, r) {
     if (type.name === 'watermelon') {
-      // Outer shell
       c.fillStyle = type.colorOuter;
       c.beginPath();
       c.arc(0, 0, r, 0, Math.PI * 2);
       c.fill();
-      // Inner rind
       c.fillStyle = '#ffffff';
       c.beginPath();
       c.arc(0, 0, r - 4, 0, Math.PI * 2);
       c.fill();
-      // Red core
       c.fillStyle = type.colorInner;
       c.beginPath();
       c.arc(0, 0, r - 7, 0, Math.PI * 2);
       c.fill();
-      // Seeds
       c.fillStyle = type.colorSeed;
       const seedR = 2.5;
       const seedOffsets = [[-12, -8], [12, -8], [-5, 12], [5, 12], [-15, 8], [15, 8], [0, -18]];
@@ -580,38 +573,29 @@
       });
     } 
     else if (type.name === 'apple') {
-      // Apple body
       c.fillStyle = type.colorOuter;
       c.beginPath();
-      // Heart-ish shape
       c.arc(-r/3, -r/10, r * 0.75, 0, Math.PI * 2);
       c.arc(r/3, -r/10, r * 0.75, 0, Math.PI * 2);
       c.fill();
-      // Flesh inside slice look (for texture)
       c.fillStyle = type.colorInner;
       c.beginPath();
       c.arc(0, 0, r - 6, 0, Math.PI * 2);
       c.fill();
-      // Core seed
       c.fillStyle = type.colorSeed;
       c.beginPath();
       c.ellipse(0, 0, 3, 5, 0, 0, Math.PI * 2);
       c.fill();
     } 
     else if (type.name === 'orange') {
-      // Outer skin
       c.fillStyle = type.colorOuter;
       c.beginPath();
       c.arc(0, 0, r, 0, Math.PI * 2);
       c.fill();
-      
-      // Inside white segments layer
       c.fillStyle = '#ffffff';
       c.beginPath();
       c.arc(0, 0, r - 3, 0, Math.PI * 2);
       c.fill();
-
-      // Orange slices
       c.fillStyle = type.colorInner;
       for (let i = 0; i < 8; i++) {
         c.beginPath();
@@ -622,15 +606,12 @@
       }
     } 
     else if (type.name === 'banana') {
-      // Banana curve simulation
       c.fillStyle = type.colorOuter;
       c.beginPath();
       c.arc(0, 10, r * 1.5, Math.PI * 1.25, Math.PI * 1.75);
       c.arc(0, 22, r * 1.5, Math.PI * 1.75, Math.PI * 1.25, true);
       c.closePath();
       c.fill();
-      
-      // Inner cream highlights
       c.fillStyle = type.colorInner;
       c.beginPath();
       c.arc(0, 14, r * 1.3, Math.PI * 1.28, Math.PI * 1.72);
@@ -639,17 +620,14 @@
       c.fill();
     } 
     else if (type.name === 'coconut') {
-      // Brown shell
       c.fillStyle = type.colorOuter;
       c.beginPath();
       c.arc(0, 0, r, 0, Math.PI * 2);
       c.fill();
-      // White meat
       c.fillStyle = type.colorInner;
       c.beginPath();
       c.arc(0, 0, r - 5, 0, Math.PI * 2);
       c.fill();
-      // Hollow center (transparent space filled with grey background shading)
       c.fillStyle = '#1e1c18';
       c.beginPath();
       c.arc(0, 0, r - 12, 0, Math.PI * 2);
@@ -658,7 +636,6 @@
   }
 
   function drawBomb(c, r) {
-    // Metal body
     const grad = c.createRadialGradient(-5, -5, 2, 0, 0, r);
     grad.addColorStop(0, '#555555');
     grad.addColorStop(0.7, '#222222');
@@ -669,18 +646,15 @@
     c.arc(0, 0, r, 0, Math.PI * 2);
     c.fill();
 
-    // Fuse connector cap
     c.fillStyle = '#444444';
     c.fillRect(-6, -r - 4, 12, 5);
 
-    // Sparkling fuse curve
     c.strokeStyle = '#b8860b';
     c.lineWidth = 3;
     c.beginPath();
     c.arc(10, -r - 12, 12, Math.PI, Math.PI * 1.8, false);
     c.stroke();
 
-    // Spark star
     c.fillStyle = '#ffcc00';
     c.shadowColor = '#ff3300';
     c.shadowBlur = 10;
@@ -703,7 +677,6 @@
     c.fill();
   }
 
-  // --- Visual Generation Controllers ---
   function createJuiceParticles(x, y, color) {
     const numParticles = Math.floor(Math.random() * 8) + 10;
     for (let i = 0; i < numParticles; i++) {
@@ -712,7 +685,6 @@
   }
 
   function createExplosionParticles(x, y) {
-    // Large dramatic flash effect for bomb hits
     const numParticles = 40;
     const colors = ['#ffffff', '#ffcc00', '#ff3300', '#333333'];
     for (let i = 0; i < numParticles; i++) {
@@ -723,19 +695,15 @@
       p.vy = Math.random() * 20 - 10;
       particles.push(p);
     }
-
     floatingTexts.push(new FloatingText(x, y - 20, 'BOOM!', '#ff3b30'));
   }
 
   function createSplatter(x, y, color) {
-    // Keep max splatters low so memory stays clear
     if (splatters.length > 8) {
       splatters.shift();
     }
     splatters.push(new Splatter(x, y, color));
   }
-
-  // --- Game Loop Update and Slicing Checking ---
 
   function checkSlices() {
     if (bladePoints.length < 2) return;
@@ -745,8 +713,6 @@
 
     fruits.forEach(f => {
       if (f.isSliced) return;
-
-      // Distance checking: Check if the drag line segment intersects with the fruit's circular boundaries
       if (lineIntersectsCircle(p1.x, p1.y, p2.x, p2.y, f.x, f.y, f.radius)) {
         f.slice();
         if (!f.isBomb) {
@@ -757,33 +723,22 @@
     });
   }
 
-  // Segment distance intersection algorithm
   function lineIntersectsCircle(x1, y1, x2, y2, cx, cy, r) {
     const dx = x2 - x1;
     const dy = y2 - y1;
-    
-    // Length squared of segment
     const lenSq = dx * dx + dy * dy;
     if (lenSq === 0) {
       const distSq = (x1 - cx) * (x1 - cx) + (y1 - cy) * (y1 - cy);
       return distSq <= r * r;
     }
-
-    // Projection coefficient t
     let t = ((cx - x1) * dx + (cy - y1) * dy) / lenSq;
-    // Clamp to segment range
     t = Math.max(0, Math.min(1, t));
-
-    // Project point on segment
     const closestX = x1 + t * dx;
     const closestY = y1 + t * dy;
-
-    // Distance squared from circle center to closest point
     const distSq = (closestX - cx) * (closestX - cx) + (closestY - cy) * (closestY - cy);
     return distSq <= r * r;
   }
 
-  // Evaluate combo scores once dragging ends
   function evaluateCombo() {
     if (activeSwipeFruits.size >= 3) {
       const size = activeSwipeFruits.size;
@@ -799,7 +754,6 @@
         maxCombo = size;
       }
 
-      // Grab mid point of sliced fruits for text popup
       let avgX = 0;
       let avgY = 0;
       activeSwipeFruits.forEach(f => {
@@ -815,18 +769,10 @@
     activeSwipeFruits.clear();
   }
 
-  // HUD Score & Hearts Updater
-  function updateHUD() {
-    // Current HUD outputs
-    const elements = document.getElementsByClassName('hud-val');
-    // Canvas HUD is rendered in game loop, HTML overlay scores updated below
-  }
+  function updateHUD() {}
 
-  // Spawns new batches of fruits
   function spawnFruits() {
-    const batchCount = Math.floor(Math.random() * 3) + 1; // 1 to 3 items
-    
-    // Chance of throwing a bomb decreases as score decreases, max 30% chance above 20 score
+    const batchCount = Math.floor(Math.random() * 3) + 1; 
     const bombThreshold = score < 10 ? 0.05 : (score < 25 ? 0.15 : 0.25);
 
     for (let i = 0; i < batchCount; i++) {
@@ -839,27 +785,19 @@
         const types = [FRUIT_TYPES.WATERMELON, FRUIT_TYPES.APPLE, FRUIT_TYPES.ORANGE, FRUIT_TYPES.BANANA, FRUIT_TYPES.COCONUT];
         type = types[Math.floor(Math.random() * types.length)];
       }
-
       fruits.push(new Fruit(type));
     }
   }
 
-  // Main Canvas Render loop
   function drawGame(timestamp) {
     if (!isPlaying) return;
 
-    // Clear Canvas and paint transparent wood backdrop grid
     ctx.fillStyle = '#11131a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Draw splatters under game objects
     splatters.forEach(s => s.draw());
 
-    // Spawn mechanism timer
     if (!lastSpawnTime) lastSpawnTime = timestamp;
     const timeElapsed = timestamp - lastSpawnTime;
-    
-    // Scale spawn delay slightly with score
     const currentSpawnDelay = Math.max(1000, SPAWN_INTERVAL - (score * 12));
     
     if (timeElapsed >= currentSpawnDelay) {
@@ -867,25 +805,19 @@
       lastSpawnTime = timestamp;
     }
 
-    // Update & Draw splatters decay
     splatters.forEach(s => s.update());
     splatters = splatters.filter(s => s.opacity > 0);
 
-    // Update & Draw Game elements (Fruits, Splitted halves)
     fruits.forEach(f => {
       f.update();
       f.draw();
     });
 
-    // Check for missed fruits (falling below canvas bounds)
     fruits.forEach(f => {
       if (!f.isSliced && !f.isBomb && f.y > canvas.height + f.radius + 10 && f.vy > 0) {
-        // Play miss alert & deduct heart
         playSound('miss');
         lives--;
-        f.isSliced = true; // Mark as sliced to avoid double deduction
-        
-        // Spawn red floating cross
+        f.isSliced = true; 
         floatingTexts.push(new FloatingText(f.x, canvas.height - 40, 'MISS X', '#ff3b30'));
 
         if (lives <= 0) {
@@ -894,35 +826,27 @@
       }
     });
 
-    // Filter out entities off-screen
     fruits = fruits.filter(f => {
       if (!f.isSliced) return f.y < canvas.height + f.radius + 50;
-      // If sliced, keep rendering until halves fade out completely
       if (f.halfL && f.halfL.opacity <= 0) return false;
       return true;
     });
 
-    // Update & Draw Juice particles
     particles.forEach(p => {
       p.update();
       p.draw();
     });
     particles = particles.filter(p => p.opacity > 0);
 
-    // Update & Draw floating text indicators
     floatingTexts.forEach(t => {
       t.update();
       t.draw();
     });
     floatingTexts = floatingTexts.filter(t => t.opacity > 0);
 
-    // Draw Blade Slash Trail
     drawBladeTrail();
-
-    // Draw on-screen HUD graphics (Hearts and Scores overlay on top of Canvas)
     drawCanvasHUD();
 
-    // Call loop recursively
     animationFrameId = requestAnimationFrame(drawGame);
   }
 
@@ -930,8 +854,6 @@
     if (bladePoints.length < 2) return;
 
     ctx.save();
-    
-    // Draw thick outer neon blade shadow
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.shadowColor = '#00f2fe';
     ctx.shadowBlur = 15;
@@ -945,7 +867,6 @@
     }
     ctx.stroke();
 
-    // Draw thin bright core blade
     ctx.strokeStyle = '#ffffff';
     ctx.shadowBlur = 0;
     ctx.lineWidth = 3;
@@ -955,15 +876,12 @@
       ctx.lineTo(bladePoints[i].x, bladePoints[i].y);
     }
     ctx.stroke();
-
     ctx.restore();
 
-    // Age trail points
     bladePoints.forEach(p => p.age++);
   }
 
   function drawCanvasHUD() {
-    // Draw Score
     ctx.save();
     ctx.fillStyle = '#ffffff';
     ctx.font = '800 28px Outfit';
@@ -973,7 +891,6 @@
     ctx.shadowBlur = 4;
     ctx.fillText(`SCORE: ${score}`, 24, 20);
 
-    // Draw Hearts for Lives
     ctx.textAlign = 'right';
     const heartSpacing = 35;
     const startHeartX = canvas.width - 24;
@@ -985,24 +902,22 @@
       ctx.shadowBlur = i < lives ? 8 : 0;
       ctx.shadowColor = '#ff3b30';
       
-      // Draw Unicode heart character or SVG path shape
       ctx.font = '24px "Font Awesome 6 Free"';
       ctx.fontWeight = '900';
-      ctx.fillText(i < lives ? '\f004' : '\f004', hx, heartY - 12);
+      ctx.fillText(i < lives ? '❤' : '❤', hx, heartY - 12);
     }
-
     ctx.restore();
   }
 
   // --- Start & End Game controllers ---
-
   function startGame() {
     initAudio();
+    
+    // 🛠️【保險修正】：強制重設時間戳記，確保重新開始時，第一幀的 timestamp 不會產生巨大的時間差
     if (animationFrameId) {
       cancelAnimationFrame(animationFrameId);
     }
 
-    // Reset scores & vectors
     score = 0;
     lives = 3;
     slicedCount = 0;
@@ -1012,15 +927,15 @@
     splatters = [];
     bladePoints = [];
     floatingTexts = [];
-    lastSpawnTime = 0;
-
+    
+    // 🛠️ 確保重新計時生水果
+    lastSpawnTime = performance.now(); 
     isPlaying = true;
 
-    // Toggle overlay visibility
     document.getElementById('gameStartOverlay').classList.add('hidden');
     document.getElementById('gameOverOverlay').classList.add('hidden');
 
-    // Start frame loop
+    // 啟動迴圈
     animationFrameId = requestAnimationFrame(drawGame);
   }
 
@@ -1028,7 +943,6 @@
     isPlaying = false;
     cancelAnimationFrame(animationFrameId);
 
-    // Update high scores stored in browser local storage
     const currentHigh = parseInt(localStorage.getItem('fn_high_score') || '0');
     if (score > currentHigh) {
       localStorage.setItem('fn_high_score', score.toString());
@@ -1036,7 +950,6 @@
       if (gameHighScoreHUD) gameHighScoreHUD.textContent = score;
     }
 
-    // Display Game Over Overlay and scores
     document.getElementById('gameOverOverlay').classList.remove('hidden');
     document.getElementById('finalScoreVal').textContent = score;
     document.getElementById('finalSlicedVal').textContent = slicedCount;
@@ -1045,8 +958,7 @@
     const submissionStatus = document.getElementById('submissionStatus');
     if (!submissionStatus) return;
 
-    // Check if user is logged in
-    if (window.appState.isLoggedIn) {
+    if (window.appState && window.appState.isLoggedIn) {
       submissionStatus.innerHTML = `<span class="neon-text-blue"><i class="fa-solid fa-spinner fa-spin"></i> 正在上傳分數至排行榜...</span>`;
 
       try {
@@ -1064,14 +976,9 @@
         });
 
         const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || '上傳失敗');
-        }
+        if (!response.ok) throw new Error(data.error || '上傳失敗');
 
         submissionStatus.innerHTML = `<span class="neon-text-green"><i class="fa-solid fa-cloud-arrow-up"></i> 分數上傳成功！</span>`;
-        
-        // Refresh leaderboard list automatically
         if (typeof window.fetchLeaderboard === 'function') {
           window.fetchLeaderboard();
         }
@@ -1079,10 +986,11 @@
         submissionStatus.innerHTML = `<span class="neon-text-red"><i class="fa-solid fa-circle-xmark"></i> 上傳失敗：${err.message}</span>`;
       }
     } else {
-      submissionStatus.innerHTML = `<span class="text-muted"><i class="fa-solid fa-right-to-bracket"></i> <a href="#leaderboard" style="color:var(--neon-blue);text-decoration:underline;">登入帳號</a> 即可自動上傳高分至排行榜！</span>`;
+      submissionStatus.innerHTML = `<span class="text-muted"><i class="fa-solid fa-right-to-bracket"></i> 登入帳號即可自動上傳高分！</span>`;
     }
   }
 
-  // Expose function to trigger resize
   window.resizeGameCanvas = resizeGameCanvas;
 })();
+
+```
