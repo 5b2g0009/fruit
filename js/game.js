@@ -1,31 +1,3 @@
-抓到問題了！當你玩完一局、回到首頁再重新點擊開始時，水果之所以會突然變快，最關鍵的 Bug 藏在 `Fruit` 的建構子（Constructor）裡：
-
-```javascript
-// ❌ 這是原本程式碼中的 Bug
-const currentDifficultySpeed = INITIAL_SPAWN_SPEED_Y * Math.pow(SPEED_MULTIPLIER, Math.floor(score / 15));
-this.vy = Math.random() * 3 + Math.max(-18, currentDifficultySpeed);
-
-```
-
-### 🔍 為什麼會變快？（原因分析）
-
-1. `INITIAL_SPAWN_SPEED_Y` 的值是 `-12`（負值在 Canvas 代表向上飛）。
-2. 當你分數很高時，`Math.pow(1.05, Math.floor(score / 15))` 會讓數值變成例如 `-18` 或 `-20`。
-3. 但你在後面加了一個 `Math.max(-18, currentDifficultySpeed)`。
-4. **重點來了！** 負數比較時，**`-12` 大於 `-18**`。當 `currentDifficultySpeed` 因為分數提高而變成 `-15`、`-18`、`-20` 時，`Math.max(-18, 速度)` 會正確限制它不能超越 `-18`。
-5. **可是，當你遊戲結束「重新開始」時：** `score` 歸零，`currentDifficultySpeed` 回到 `-12`。此時 `Math.max(-18, -12)` 的結果是 **`-12`**。
-6. **致命的程式邏輯衝突：** 水果向上飛的速度本來是 `-12`（比較慢），但你在前面加了 `Math.random() * 3`。當兩者相加：`3 + (-12) = -9`。也就是說，重啟遊戲後，水果**往上的推力變小了（變成了 -9）**！
-7. **結果：** 向上推力不夠（`-9`），水果根本飛不高，剛從螢幕底部噴出來一點點，就立刻被 `GRAVITY = 0.28` 的重力往下拉。**這導致水果在螢幕底部「極快速地掉落、墜毀」**，甚至直接觸發 `MISS` 扣血。這就是你看到的「好好地突然掉落很快」的靈異現象！
-
----
-
-### 🛠️ 修正後的完整程式碼
-
-我幫你把這個速度計算公式改成了**正確的數學邏輯（用 `Math.min` 處理負數，或直接用絕對值計算）**，並且微調了 `lastSpawnTime` 的時間同步，確保重啟時不會有影格時間差。
-
-你可以直接複製這段完整的程式碼去替換舊的：
-
-```javascript
 /**
  * Fruit Ninja HTML5 Canvas Game Engine (Fixed Speed Bug)
  */
@@ -992,5 +964,3 @@ this.vy = Math.random() * 3 + Math.max(-18, currentDifficultySpeed);
 
   window.resizeGameCanvas = resizeGameCanvas;
 })();
-
-```
