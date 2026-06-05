@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>水果忍者專題 & 學習歷程 - 個人網頁</title>
+  <!-- Google Fonts: Outfit & Inter for premium typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons for visual polish -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Main CSS styling -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dark-theme">
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="#home" class="logo">
+        <i class="fa-solid fa-apple-whole neon-text-red"></i>
+        <span>Fruit<span class="highlight">Ninja</span></span>
+      </a>
+      
+      <nav class="nav-menu" id="navMenu">
+        <a href="#home" class="nav-link active" data-target="home"><i class="fa-solid fa-house"></i> 首頁簡介</a>
+        <a href="#courses" class="nav-link" data-target="courses"><i class="fa-solid fa-graduation-cap"></i> 上課內容</a>
+        <a href="#game" class="nav-link" data-target="game"><i class="fa-solid fa-gamepad"></i> 期末專題</a>
+        <a href="#leaderboard" class="nav-link" data-target="leaderboard"><i class="fa-solid fa-trophy"></i> 排行榜</a>
+      </nav>
+
+      <div class="nav-auth" id="navAuth">
+        <button class="btn btn-primary btn-sm" id="btnShowAuth"><i class="fa-solid fa-right-to-bracket"></i> 登入 / 註冊</button>
+        <div class="user-profile-menu hidden" id="userProfileMenu">
+          <span class="user-greeting"><i class="fa-solid fa-user-circle"></i> <span id="navUsername">Player</span></span>
+          <button class="btn btn-secondary btn-sm" id="btnLogout"><i class="fa-solid fa-right-from-bracket"></i> 登出</button>
+        </div>
+      </div>
+      
+      <button class="hamburger-menu" id="hamburgerMenu">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Container (SPA Sections) -->
+  <main class="content-wrapper">
+    
+    <!-- Section 1: Home / Personal Intro (首頁個人簡介) -->
+    <section id="home" class="spa-section active">
+      <div class="hero-section">
+        <div class="hero-content">
+          <div class="badge neon-border-blue">Web Developer & Student</div>
+          <h1>哈囉！我是 <span class="gradient-text">林小明</span></h1>
+          <p class="subtitle">歡迎來到我的個人網站與期末網頁專題展示！我是南臺科技大學資訊工程系三年級的學生，熱衷於網頁開發、遊戲程式設計與互動式體驗開發。</p>
+          <div class="cta-buttons">
+            <a href="#game" class="btn btn-primary btn-lg"><i class="fa-solid fa-play"></i> 試玩期末專題</a>
+            <a href="#courses" class="btn btn-secondary btn-lg"><i class="fa-solid fa-arrow-down"></i> 瀏覽學習歷程</a>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="avatar-card">
+            <div class="avatar-glow"></div>
+            <!-- Interactive visual element or avatar placeholder -->
+            <div class="avatar-inner">
+              <i class="fa-solid fa-user-astronaut"></i>
+            </div>
+            <div class="avatar-info">
+              <h3>個人資料</h3>
+              <p><i class="fa-solid fa-envelope"></i> mail@stust.edu.tw</p>
+              <p><i class="fa-brands fa-github"></i> github.com/username</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="skills-section">
+        <h2 class="section-title">我的專業技能</h2>
+        <div class="skills-grid">
+          <div class="skill-card">
+            <div class="skill-icon neon-text-blue"><i class="fa-brands fa-html5"></i></div>
+            <h3>前端技術</h3>
+            <p>熟練掌握 HTML5 Canvas 遊戲開發、CSS3 網頁設計（含 Grid, Flexbox, 動畫特效）及原生 JavaScript (ES6+)。</p>
+          </div>
+          <div class="skill-card">
+            <div class="skill-icon neon-text-green"><i class="fa-brands fa-node-js"></i></div>
+            <h3>後端開發</h3>
+            <p>使用 Node.js 與 Express 框架架設高效的 RESTful API，處理使用者驗證 (JWT) 與遊戲數據流。</p>
+          </div>
+          <div class="skill-card">
+            <div class="skill-icon neon-text-yellow"><i class="fa-solid fa-database"></i></div>
+            <h3>資料庫管理</h3>
+            <p>使用 SQLite 與 PostgreSQL 儲存玩家帳號資訊及關卡排行榜資料，並實作安全密碼雜湊與資料查詢優化。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Courses (本學期上課內容) -->
+    <section id="courses" class="spa-section">
+      <h2 class="section-title text-center">本學期上課內容與學習歷程</h2>
+      <p class="section-desc text-center">這學期我們深入學習了從前端基礎到後端資料庫整合的完整開發技能，以下是我的學習歷程與核心課程主題：</p>
+      
+      <div class="timeline">
+        
+        <!-- Timeline Item 1 -->
+        <div class="timeline-item">
+          <div class="timeline-badge neon-border-blue">01</div>
+          <div class="timeline-panel">
+            <div class="timeline-meta">第 1 - 4 週</div>
+            <h3>現代網頁核心 (HTML5 / CSS3 & 響應式佈局)</h3>
+            <p>學習了現代網頁的語意化 HTML5 標籤以及 CSS 網格系統 (CSS Grid) 和彈性佈局 (Flexbox)。我們實作了多種響應式設計 (RWD)，使網頁能在手機、平板及電腦等不同尺寸的螢幕上完美呈現。</p>
+            <div class="tags">
+              <span class="tag">HTML5</span>
+              <span class="tag">CSS Grid</span>
+              <span class="tag">RWD</span>
+              <span class="tag">Aesthetics</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timeline Item 2 -->
+        <div class="timeline-item">
+          <div class="timeline-badge neon-border-purple">02</div>
+          <div class="timeline-panel">
+            <div class="timeline-meta">第 5 - 8 週</div>
+            <h3>非同步 JavaScript 與 Canvas 繪圖入門</h3>
+            <p>探索原生 JavaScript ES6+ 的非同步處理 (Promises, async/await) 與 Web APIs。並學習了 HTML5 Canvas 基礎，包括路徑繪製、二維物理碰撞原理及動畫循環 (requestAnimationFrame)，這為期末專題的遊戲引擎奠定了關鍵基礎。</p>
+            <div class="tags">
+              <span class="tag">JavaScript ES6</span>
+              <span class="tag">HTML5 Canvas</span>
+              <span class="tag">Game Loop</span>
+              <span class="tag">Async JS</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timeline Item 3 -->
+        <div class="timeline-item">
+          <div class="timeline-badge neon-border-green">03</div>
+          <div class="timeline-panel">
+            <div class="timeline-meta">第 9 - 12 週</div>
+            <h3>後端伺服器架構 (Node.js & Express API)</h3>
+            <p>進入後端開發領域，學習使用 Node.js 搭配 Express 框架建立伺服器。我們實作了 RESTful API 路由設計、中介軟體 (Middleware) 概念，以及與前端進行 JSON 資料傳輸的跨來源資源共用 (CORS) 處理。</p>
+            <div class="tags">
+              <span class="tag">Node.js</span>
+              <span class="tag">Express.js</span>
+              <span class="tag">RESTful API</span>
+              <span class="tag">Backend</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timeline Item 4 -->
+        <div class="timeline-item">
+          <div class="timeline-badge neon-border-red">04</div>
+          <div class="timeline-panel">
+            <div class="timeline-meta">第 13 - 16 週</div>
+            <h3>資料庫系統整合與安全驗證</h3>
+            <p>學習 SQL 資料庫語法，利用 SQLite/PostgreSQL 進行關聯式資料庫設計。我們實作了使用者帳號註冊與登入功能，並利用 bcrypt 進行密碼加密與 JWT (JSON Web Token) 機制來保護 API，實現安全的使用者認證狀態管理與排行榜功能。</p>
+            <div class="tags">
+              <span class="tag">SQL / SQLite</span>
+              <span class="tag">Bcrypt</span>
+              <span class="tag">JWT Auth</span>
+              <span class="tag">Database Design</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Section 3: Game (期末專題 - 水果忍者) -->
+    <section id="game" class="spa-section">
+      <div class="game-layout">
+        
+        <!-- Game Column 1: Info and instructions -->
+        <div class="game-info-panel">
+          <div class="badge neon-border-red">期末專題</div>
+          <h2>HTML5 水果忍者 (Fruit Ninja)</h2>
+          <p>這是一個以原生 HTML5 Canvas 與 JavaScript 物理動畫開發的「水果忍者」網頁版遊戲。玩家可以用滑鼠或手指滑動，在螢幕上切碎各式水果並避免切到炸彈！</p>
+          
+          <div class="game-instructions">
+            <h3><i class="fa-solid fa-circle-info"></i> 遊戲規則與操作：</h3>
+            <ul>
+              <li><i class="fa-solid fa-mouse-pointer neon-text-red"></i> <strong>切水果：</strong> 按住滑鼠左鍵並拖曳（或在觸控螢幕上滑動）劃出劍氣切碎水果。</li>
+              <li><i class="fa-solid fa-heart neon-text-red"></i> <strong>生命值：</strong> 漏掉水果會扣 1 顆心，切到炸彈直接扣除所有生命（或扣 1 顆心）。共有 3 顆心。</li>
+              <li><i class="fa-solid fa-star neon-text-yellow"></i> <strong>連擊 (Combo)：</strong> 同一次劃動切碎 3 個或更多水果可獲得額外 Combo 加分！</li>
+              <li><i class="fa-solid fa-trophy neon-text-yellow"></i> <strong>登入存檔：</strong> 登入後遊戲結束會自動將你的高分上傳至排行榜！</li>
+            </ul>
+          </div>
+
+          <div class="game-control-card">
+            <div class="game-stats-hud">
+              <div class="hud-item">
+                <span class="hud-label">目前最高分</span>
+                <span class="hud-val" id="gameHighScore">0</span>
+              </div>
+              <div class="hud-item">
+                <span class="hud-label">登入狀態</span>
+                <span class="hud-val neon-text-red" id="gameAuthStatus">未登入</span>
+              </div>
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-primary" id="btnStartGame"><i class="fa-solid fa-gamepad"></i> 開始遊戲</button>
+              <button class="btn btn-secondary" id="btnToggleSound"><i class="fa-solid fa-volume-up"></i> 音效: 開</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Game Column 2: Canvas Area -->
+        <div class="game-canvas-wrapper">
+          <div class="canvas-glow"></div>
+          <div class="canvas-container">
+            <canvas id="gameCanvas" width="800" height="500"></canvas>
+            
+            <!-- Game Splash / Start Overlay -->
+            <div class="canvas-overlay" id="gameStartOverlay">
+              <div class="overlay-content">
+                <div class="logo-animation">
+                  <i class="fa-solid fa-apple-whole sword-slash-icon"></i>
+                </div>
+                <h2>水果忍者</h2>
+                <p>劃動螢幕切碎水果，挑戰你的反應極限！</p>
+                <button class="btn btn-primary btn-lg" id="btnOverlayPlay">開始挑戰</button>
+              </div>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div class="canvas-overlay hidden" id="gameOverOverlay">
+              <div class="overlay-content animate-pop">
+                <h1 class="game-over-title neon-text-red">GAME OVER</h1>
+                <p>得分：<span class="score-result" id="finalScoreVal">0</span></p>
+                <p>切碎水果：<span id="finalSlicedVal">0</span> | 最大連擊：<span id="finalComboVal">0</span></p>
+                <div class="leaderboard-submission-status" id="submissionStatus">
+                  <!-- JS will insert login prompt or submission result here -->
+                </div>
+                <div class="btn-group justify-center">
+                  <button class="btn btn-primary" id="btnRestartGame"><i class="fa-solid fa-arrow-rotate-right"></i> 再玩一次</button>
+                  <a href="#leaderboard" class="btn btn-secondary" id="btnGoToLeaderboard"><i class="fa-solid fa-trophy"></i> 查看排行榜</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Section 4: Leaderboard & Stats (排行榜與個人統計) -->
+    <section id="leaderboard" class="spa-section">
+      <h2 class="section-title text-center">全球玩家排行榜</h2>
+      <p class="section-desc text-center">切碎水果的終極挑戰者！登入並挑戰最高分數，寫下你的傳奇紀錄。</p>
+
+      <div class="leaderboard-grid">
+        
+        <!-- Left: Leaderboard Table -->
+        <div class="leaderboard-card neon-border-purple">
+          <div class="card-header">
+            <h3><i class="fa-solid fa-list-ol neon-text-purple"></i> 排行榜 Top 20</h3>
+            <button class="btn btn-secondary btn-sm" id="btnRefreshLeaderboard"><i class="fa-solid fa-rotate"></i> 重新整理</button>
+          </div>
+          <div class="table-responsive">
+            <table class="leaderboard-table">
+              <thead>
+                <tr>
+                  <th>名次</th>
+                  <th>玩家名稱</th>
+                  <th>分數</th>
+                  <th>切碎數</th>
+                  <th>最大連擊</th>
+                  <th>挑戰時間</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboardBody">
+                <!-- Scores loaded via JS -->
+                <tr>
+                  <td colspan="6" class="text-center py-4 text-muted">載入中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Right: Player Personal Stats -->
+        <div class="stats-card-panel">
+          
+          <div class="leaderboard-card neon-border-green" id="userStatsCard">
+            <div class="card-header">
+              <h3><i class="fa-solid fa-user-chart neon-text-green"></i> 個人統計數據</h3>
+            </div>
+            
+            <div id="statsContentUnauthenticated" class="stats-unauth text-center py-4">
+              <i class="fa-solid fa-user-lock fa-3x mb-3 text-muted"></i>
+              <p class="mb-3">登入你的帳號來查看詳細的個人遊戲統計與高分紀錄！</p>
+              <button class="btn btn-primary" id="btnStatsLogin"><i class="fa-solid fa-right-to-bracket"></i> 立即登入</button>
+            </div>
+
+            <div id="statsContentAuthenticated" class="stats-auth hidden">
+              <div class="user-info-header">
+                <div class="user-avatar"><i class="fa-solid fa-gamepad"></i></div>
+                <div>
+                  <h4 id="statsUsername">PlayerName</h4>
+                  <p class="text-muted">已登入</p>
+                </div>
+              </div>
+              
+              <div class="stats-grid">
+                <div class="stat-item">
+                  <div class="stat-num neon-text-blue" id="statHighScore">0</div>
+                  <div class="stat-label">個人最高分</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-num neon-text-purple" id="statGamesPlayed">0</div>
+                  <div class="stat-label">遊玩場次</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-num neon-text-green" id="statTotalSliced">0</div>
+                  <div class="stat-label">累積切碎水果</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-num neon-text-yellow" id="statHighestCombo">0</div>
+                  <div class="stat-label">最高連擊數</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="project-info-card">
+            <h3><i class="fa-solid fa-code neon-text-blue"></i> 專題技術規格</h3>
+            <ul>
+              <li><strong>前端</strong>: HTML5 Canvas 二維物理渲染、原生 JavaScript、CSS3 Flex/Grid。</li>
+              <li><strong>後端</strong>: Node.js, Express.js REST API 伺服器。</li>
+              <li><strong>資料庫</strong>: SQLite 關係型資料庫。</li>
+              <li><strong>音效</strong>: Web Audio API 合成音效（無須加載大檔案）。</li>
+              <li><strong>驗證</strong>: JSON Web Tokens (JWT) 使用者註冊與授權。</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Auth Modal (Login / Sign Up) -->
+  <div class="modal-overlay hidden" id="authModal">
+    <div class="modal-card animate-pop">
+      <button class="modal-close" id="btnModalClose">&times;</button>
+      
+      <div class="modal-tabs">
+        <button class="modal-tab-btn active" data-tab="login">登入帳號</button>
+        <button class="modal-tab-btn" data-tab="signup">註冊帳號</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Error alert message container -->
+        <div class="alert alert-danger hidden" id="authErrorAlert">錯誤訊息</div>
+
+        <!-- Login Form -->
+        <form id="formLogin" class="auth-form">
+          <div class="form-group">
+            <label for="loginUsername">帳號名稱</label>
+            <div class="input-container">
+              <i class="fa-solid fa-user"></i>
+              <input type="text" id="loginUsername" placeholder="請輸入帳號" required minlength="3" maxlength="20">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">密碼</label>
+            <div class="input-container">
+              <i class="fa-solid fa-lock"></i>
+              <input type="password" id="loginPassword" placeholder="請輸入密碼" required minlength="6">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-right-to-bracket"></i> 登入</button>
+        </form>
+
+        <!-- Signup Form -->
+        <form id="formSignup" class="auth-form hidden">
+          <div class="form-group">
+            <label for="signupUsername">註冊帳號名稱</label>
+            <div class="input-container">
+              <i class="fa-solid fa-user-plus"></i>
+              <input type="text" id="signupUsername" placeholder="請輸入 3-20 字元帳號" required minlength="3" maxlength="20">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="signupPassword">密碼</label>
+            <div class="input-container">
+              <i class="fa-solid fa-lock"></i>
+              <input type="password" id="signupPassword" placeholder="請輸入至少 6 位元密碼" required minlength="6">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="signupConfirmPassword">確認密碼</label>
+            <div class="input-container">
+              <i class="fa-solid fa-shield-halved"></i>
+              <input type="password" id="signupConfirmPassword" placeholder="請再次確認密碼" required minlength="6">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-success btn-block"><i class="fa-solid fa-user-plus"></i> 註冊帳號</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-container">
+      <p>&copy; 2026 南臺科技大學 網頁設計期末專案. 版權所有.</p>
+      <div class="footer-links">
+        <a href="https://github.com" target="_blank" id="footerGithubLink"><i class="fa-brands fa-github"></i> GitHub Repo</a>
+        <a href="https://youtube.com" target="_blank" id="footerYoutubeLink"><i class="fa-brands fa-youtube"></i> 介紹影片 (YouTube)</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="js/auth.js"></script>
+  <script src="js/leaderboard.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
