@@ -1,5 +1,5 @@
 /**
- * Fruit Ninja HTML5 Canvas Game Engine (Fixed Speed Bug)
+ * Fruit Ninja HTML5 Canvas Game Engine (Fixed Speed and Delta Time Bug)
  */
 (function() {
   // Canvas and Context
@@ -21,6 +21,7 @@
   let maxCombo = 0;
   let soundEnabled = true;
   let lastSpawnTime = 0;
+  let lastFrameTime = 0; // 【新增】用來記錄上一次繪製的時間戳記
 
   // Game Objects lists
   let fruits = [];
@@ -289,11 +290,9 @@
       const direction = this.x < canvas.width / 2 ? 1 : -1;
       this.vx = (Math.random() * 3 + 1) * direction;
       
-      // 🛠️【核心修正】：改用正數計算速度上限，最後再轉為負數（向上飛行），徹底解決 Math.max 的負數邏輯錯誤
+      // 修正後的向上飛行速度公式 (確保重新開始時速度公式不崩潰)
       const baseUpwardSpeed = Math.abs(INITIAL_SPAWN_SPEED_Y) * Math.pow(SPEED_MULTIPLIER, Math.floor(score / 15));
       const cappedUpwardSpeed = Math.min(18, baseUpwardSpeed); 
-      
-      // 隨機微調向上推力
       this.vy = -(cappedUpwardSpeed + Math.random() * 3);
 
       this.angle = Math.random() * Math.PI * 2;
@@ -303,15 +302,16 @@
       this.halfR = null;
     }
 
-    update() {
+    // 接收來自 Game loop 的 timeScale 控制運動幅度
+    update(timeScale) {
       if (!this.isSliced) {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.vy += GRAVITY; 
-        this.angle += this.rotationSpeed;
+        this.x += this.vx * timeScale;
+        this.y += this.vy * timeScale;
+        this.vy += GRAVITY * timeScale; 
+        this.angle += this.rotationSpeed * timeScale;
       } else {
-        if (this.halfL) this.halfL.update();
-        if (this.halfR) this.halfR.update();
+        if (this.halfL) this.halfL.update(timeScale);
+        if (this.halfR) this.halfR.update(timeScale);
       }
     }
 
@@ -372,12 +372,12 @@
       this.opacity = 1.0;
     }
 
-    update() {
-      this.x += this.vx;
-      this.y += this.vy;
-      this.vy += GRAVITY * 1.1; 
-      this.angle += this.rotationSpeed;
-      this.opacity -= 0.015; 
+    update(timeScale) {
+      this.x += this.vx * timeScale;
+      this.y += this.vy * timeScale;
+      this.vy += (GRAVITY * 1.1) * timeScale; 
+      this.angle += this.rotationSpeed * timeScale;
+      this.opacity -= 0.015 * timeScale; 
     }
 
     draw() {
@@ -423,11 +423,11 @@
       this.decay = Math.random() * 0.03 + 0.02;
     }
 
-    update() {
-      this.x += this.vx;
-      this.y += this.vy;
-      this.vy += GRAVITY * 0.8;
-      this.opacity -= this.decay;
+    update(timeScale) {
+      this.x += this.vx * timeScale;
+      this.y += this.vy * timeScale;
+      this.vy += (GRAVITY * 0.8) * timeScale;
+      this.opacity -= this.decay * timeScale;
     }
 
     draw() {
@@ -461,8 +461,8 @@
       }
     }
 
-    update() {
-      this.opacity -= this.decay;
+    update(timeScale) {
+      this.opacity -= this.decay * timeScale;
     }
 
     draw() {
@@ -496,10 +496,10 @@
       this.scale = 1.0;
     }
 
-    update() {
-      this.y += this.vy;
-      this.opacity -= 0.02;
-      this.scale += 0.01;
+    update(timeScale) {
+      this.y += this.vy * timeScale;
+      this.opacity -= 0.02 * timeScale;
+      this.scale += 0.01 * timeScale;
     }
 
     draw() {
@@ -761,14 +761,32 @@
     }
   }
 
+  // --- Main Canvas Render loop (Delta Time Control) ---
   function drawGame(timestamp) {
     if (!isPlaying) return;
 
+    // 1. 初始化與防錯時間基線
+    if (!lastFrameTime) lastFrameTime = timestamp;
+    if (!lastSpawnTime) lastSpawnTime = timestamp;
+
+    // 計算當前影格與上一影格的時間差 (毫秒)
+    let deltaTime = timestamp - lastFrameTime;
+    lastFrameTime = timestamp;
+
+    // 2. 【核心防線】切換視窗睡眠重啟時，限制異常的 deltaTime 垃圾值
+    if (deltaTime > 33) {
+      deltaTime = 16.66; // 修正回標準的 60 FPS 間隔
+    }
+
+    // 計算當前畫面的速度步伐比例 (若穩定 60fps 則 timeScale 為 1)
+    const timeScale = deltaTime / 16.66;
+
+    // 3. 清理與重置畫布，繪製背景背景血跡
     ctx.fillStyle = '#11131a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     splatters.forEach(s => s.draw());
 
-    if (!lastSpawnTime) lastSpawnTime = timestamp;
+    // 4. 水果生成機制計時
     const timeElapsed = timestamp - lastSpawnTime;
     const currentSpawnDelay = Math.max(1000, SPAWN_INTERVAL - (score * 12));
     
@@ -777,16 +795,19 @@
       lastSpawnTime = timestamp;
     }
 
-    splatters.forEach(s => s.update());
+    // 5. 更新背景血跡與生命期
+    splatters.forEach(s => s.update(timeScale));
     splatters = splatters.filter(s => s.opacity > 0);
 
+    // 6. 依據 timeScale 移動並更新所有水果
     fruits.forEach(f => {
-      f.update();
+      f.update(timeScale);
       f.draw();
     });
 
+    // 7. 檢查漏接掉落的水果 (加上 y 軸緩衝防止邊緣誤判)
     fruits.forEach(f => {
-      if (!f.isSliced && !f.isBomb && f.y > canvas.height + f.radius + 10 && f.vy > 0) {
+      if (!f.isSliced && !f.isBomb && f.y > canvas.height + f.radius + 20 && f.vy > 0) {
         playSound('miss');
         lives--;
         f.isSliced = true; 
@@ -798,27 +819,32 @@
       }
     });
 
+    // 8. 过滤回收掉落出螢幕外的水果
     fruits = fruits.filter(f => {
       if (!f.isSliced) return f.y < canvas.height + f.radius + 50;
       if (f.halfL && f.halfL.opacity <= 0) return false;
       return true;
     });
 
+    // 9. 更新並繪製果汁粒子與噴濺效果
     particles.forEach(p => {
-      p.update();
+      p.update(timeScale);
       p.draw();
     });
     particles = particles.filter(p => p.opacity > 0);
 
+    // 10. 更新並繪製 Combo 與 Miss 漂浮文字
     floatingTexts.forEach(t => {
-      t.update();
+      t.update(timeScale);
       t.draw();
     });
     floatingTexts = floatingTexts.filter(t => t.opacity > 0);
 
+    // 11. 繪製刀光軌跡與數據 HUD
     drawBladeTrail();
     drawCanvasHUD();
 
+    // 遞迴請求下一影格
     animationFrameId = requestAnimationFrame(drawGame);
   }
 
@@ -885,11 +911,13 @@
   function startGame() {
     initAudio();
     
-    // 🛠️【保險修正】：強制重設時間戳記，確保重新開始時，第一幀的 timestamp 不會產生巨大的時間差
+    // 清除任何潛在重複疊加的舊動畫線程
     if (animationFrameId) {
       cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
     }
 
+    // 重設遊戲引擎狀態
     score = 0;
     lives = 3;
     slicedCount = 0;
@@ -900,14 +928,15 @@
     bladePoints = [];
     floatingTexts = [];
     
-    // 🛠️ 確保重新計時生水果
+    // 重要：重啟時完全洗掉舊時間戳記
+    lastFrameTime = 0; 
     lastSpawnTime = performance.now(); 
     isPlaying = true;
 
     document.getElementById('gameStartOverlay').classList.add('hidden');
     document.getElementById('gameOverOverlay').classList.add('hidden');
 
-    // 啟動迴圈
+    // 重新拉起渲染迴圈
     animationFrameId = requestAnimationFrame(drawGame);
   }
 
