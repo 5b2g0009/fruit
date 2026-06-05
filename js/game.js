@@ -8,10 +8,10 @@
   let animationFrameId = null;
 
   // Game Settings & Tuning
-  const GRAVITY = 0.20;
-  const SPAWN_INTERVAL = 2500; // ms
-  const INITIAL_SPAWN_SPEED_Y = -8;
-  const SPEED_MULTIPLIER = 1.01; // speed up game slightly as score increases
+  const GRAVITY = 0.28;
+  const SPAWN_INTERVAL = 2000; // ms
+  const INITIAL_SPAWN_SPEED_Y = -12;
+  const SPEED_MULTIPLIER = 1.05; // speed up game slightly as score increases
 
   // Game State Variables
   let isPlaying = false;
