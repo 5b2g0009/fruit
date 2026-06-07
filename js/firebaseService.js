@@ -17,3 +17,20 @@ const app = initializeApp(firebaseConfig);
 
 // 初始化 Firestore 并導出，以便在其他檔案使用
 export const db = getFirestore(app);
+// ✅ Auth
+export const auth = getAuth(app);
+
+// ✅ 註冊
+export const register = (email, password) =>
+  createUserWithEmailAndPassword(auth, email, password);
+
+// ✅ 登入
+export const login = (email, password) =>
+  signInWithEmailAndPassword(auth, email, password);
+
+// ✅ 登出
+export const logout = () => signOut(auth);
+
+// ✅ 監聽登入狀態
+export const onAuthChange = (callback) =>
+  onAuthStateChanged(auth, callback);

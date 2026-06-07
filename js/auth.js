@@ -1,6 +1,8 @@
 /**
- * Authentication handling (Register, Login, Logout, Modals)
+ * Authentication handling (Firebase version)
  */
+import { register, login, logout, onAuthChange } from "./firebaseService.js";
+
 document.addEventListener('DOMContentLoaded', () => {
   initAuthUI();
 });
@@ -11,37 +13,28 @@ function initAuthUI() {
   const btnModalClose = document.getElementById('btnModalClose');
   const btnStatsLogin = document.getElementById('btnStatsLogin');
   const btnLogout = document.getElementById('btnLogout');
-  
+
   const tabBtns = document.querySelectorAll('.modal-tab-btn');
   const loginForm = document.getElementById('formLogin');
   const signupForm = document.getElementById('formSignup');
   const authErrorAlert = document.getElementById('authErrorAlert');
 
-  // API Base URL (Empty string means relative paths serve backend from same origin)
-  const API_BASE = '';
-
-  // Show Auth Modal
+  // ===== UI =====
   function showModal(defaultTab = 'login') {
     authModal.classList.remove('hidden');
     authErrorAlert.classList.add('hidden');
     switchTab(defaultTab);
   }
 
-  // Hide Auth Modal
   function hideModal() {
     authModal.classList.add('hidden');
     loginForm.reset();
     signupForm.reset();
   }
 
-  // Switch between Login & Signup Tabs
   function switchTab(tab) {
     tabBtns.forEach(btn => {
-      if (btn.getAttribute('data-tab') === tab) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
+      btn.classList.toggle('active', btn.dataset.tab === tab);
     });
 
     if (tab === 'login') {
@@ -53,10 +46,10 @@ function initAuthUI() {
     }
   }
 
-  // Event Listeners for modal triggers
-  if (btnShowAuth) btnShowAuth.addEventListener('click', () => showModal('login'));
-  if (btnModalClose) btnModalClose.addEventListener('click', hideModal);
-  if (btnStatsLogin) btnStatsLogin.addEventListener('click', () => showModal('login'));
+  // ===== Modal events =====
+  btnShowAuth?.addEventListener('click', () => showModal('login'));
+  btnModalClose?.addEventListener('click', hideModal);
+  btnStatsLogin?.addEventListener('click', () => showModal('login'));
 
   authModal.addEventListener('click', (e) => {
     if (e.target === authModal) hideModal();
@@ -65,113 +58,95 @@ function initAuthUI() {
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       authErrorAlert.classList.add('hidden');
-      switchTab(btn.getAttribute('data-tab'));
+      switchTab(btn.dataset.tab);
     });
   });
 
-  // Handle Login Submission
+  // ===== Login =====
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    authErrorAlert.classList.add('hidden');
 
     const username = document.getElementById('loginUsername').value;
     const password = document.getElementById('loginPassword').value;
 
+    const fakeEmail = `${username}@game.com`;
+
     try {
-      const response = await fetch(`${API_BASE}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
+      await login(fakeEmail, password);
 
-      const data = await response.json();
+      localStorage.setItem('fn_username', username);
 
-      if (!response.ok) {
-        throw new Error(data.error || '登入失敗，請確認帳密。');
-      }
-
-      // Save credentials
-      localStorage.setItem('fn_token', data.token);
-      localStorage.setItem('fn_username', data.username);
-      localStorage.setItem('fn_user_id', data.userId);
-
-      // Refresh UI
-      window.checkAuthStatus();
       hideModal();
-
-      // Refresh user stats if on leaderboard page
-      if (typeof window.fetchUserStats === 'function') {
-        window.fetchUserStats();
-      }
     } catch (err) {
-      authErrorAlert.textContent = err.message;
+      authErrorAlert.textContent = '帳號或密碼錯誤';
       authErrorAlert.classList.remove('hidden');
     }
   });
 
-  // Handle Signup Submission
+  // ===== Signup =====
   signupForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    authErrorAlert.classList.add('hidden');
 
     const username = document.getElementById('signupUsername').value;
     const password = document.getElementById('signupPassword').value;
     const confirmPassword = document.getElementById('signupConfirmPassword').value;
 
     if (password !== confirmPassword) {
-      authErrorAlert.textContent = '兩次輸入的密碼不一致！';
+      authErrorAlert.textContent = '密碼不一致！';
       authErrorAlert.classList.remove('hidden');
       return;
     }
 
+    const fakeEmail = `${username}@game.com`;
+
     try {
-      const response = await fetch(`${API_BASE}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
+      await register(fakeEmail, password);
 
-      const data = await response.json();
+      localStorage.setItem('fn_username', username);
 
-      if (!response.ok) {
-        throw new Error(data.error || '註冊失敗，請換個帳號試試。');
-      }
-
-      // Save credentials
-      localStorage.setItem('fn_token', data.token);
-      localStorage.setItem('fn_username', data.username);
-      localStorage.setItem('fn_user_id', data.userId);
-
-      // Refresh UI
-      window.checkAuthStatus();
       hideModal();
-
-      // Refresh user stats if on leaderboard page
-      if (typeof window.fetchUserStats === 'function') {
-        window.fetchUserStats();
-      }
     } catch (err) {
       authErrorAlert.textContent = err.message;
       authErrorAlert.classList.remove('hidden');
     }
   });
 
-  // Handle Logout
-  if (btnLogout) {
-    btnLogout.addEventListener('click', () => {
-      localStorage.removeItem('fn_token');
-      localStorage.removeItem('fn_username');
-      localStorage.removeItem('fn_user_id');
+  // ===== Logout =====
+  btnLogout?.addEventListener('click', async () => {
+    await logout();
+    localStorage.removeItem('fn_username');
+  });
 
-      window.checkAuthStatus();
+  // ===== Firebase Auth State =====
+  onAuthChange((user) => {
+    const userProfileMenu = document.getElementById('userProfileMenu');
+    const navUsername = document.getElementById('navUsername');
+    const gameAuthStatus = document.getElementById('gameAuthStatus');
 
-      // Refresh stats display
-      if (typeof window.fetchUserStats === 'function') {
-        window.fetchUserStats();
-      }
-    });
-  }
+    if (user) {
+      // 已登入
+      btnShowAuth?.classList.add('hidden');
+      userProfileMenu?.classList.remove('hidden');
 
-  // Expose showModal triggers to other scripts
+      const username = user.email.split('@')[0];
+      navUsername.textContent = username;
+
+      if (gameAuthStatus) gameAuthStatus.textContent = '已登入';
+
+    } else {
+      // 未登入
+      btnShowAuth?.classList.remove('hidden');
+      userProfileMenu?.classList.add('hidden');
+
+      if (gameAuthStatus) gameAuthStatus.textContent = '未登入';
+    }
+
+    // 更新其他系統（排行榜）
+    if (typeof window.fetchUserStats === 'function') {
+      window.fetchUserStats();
+    }
+  });
+
+  // 提供給其他 JS 呼叫
   window.triggerAuthModal = showModal;
 }
