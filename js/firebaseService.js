@@ -1,14 +1,16 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+// ✅ 用 CDN 版本（重要）
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
-// ✅ 加這段（你缺的）
-import { 
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+import {
   getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged
-} from "firebase/auth";
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
 
 // Firebase 設定
 const firebaseConfig = {
@@ -17,30 +19,29 @@ const firebaseConfig = {
   projectId: "fruit-684a9",
   storageBucket: "fruit-684a9.appspot.com",
   messagingSenderId: "682345438546",
-  appId: "1:682345438546:web:ec6ccd97c61248a195ee8b",
-  measurementId: "G-Z7GYWHN5MM"
+  appId: "1:682345438546:web:ec6ccd97c61248a195ee8b"
 };
 
-// 初始化 Firebase
+// 初始化
 const app = initializeApp(firebaseConfig);
 
-// ✅ Firestore
+// Firestore
 export const db = getFirestore(app);
 
-// ✅ Auth
+// Auth
 export const auth = getAuth(app);
 
-// ✅ 註冊
+// 註冊
 export const register = (email, password) =>
   createUserWithEmailAndPassword(auth, email, password);
 
-// ✅ 登入
+// 登入
 export const login = (email, password) =>
   signInWithEmailAndPassword(auth, email, password);
 
-// ✅ 登出
+// 登出
 export const logout = () => signOut(auth);
 
-// ✅ 狀態監聽
+// 狀態監聽
 export const onAuthChange = (callback) =>
   onAuthStateChanged(auth, callback);
