@@ -4,17 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>水果忍者專題 & 學習歷程 - 個人網頁</title>
-  <!-- Google Fonts: Outfit & Inter for premium typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <!-- FontAwesome Icons for visual polish -->
+  <link href="https://fonts.googleapis.com/css2 family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Main CSS styling -->
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="dark-theme">
-  <!-- Top Navigation Bar -->
   <header class="navbar">
     <div class="nav-container">
       <a href="#home" class="logo">
@@ -37,16 +33,14 @@
         </div>
       </div>
       
-      <button class="hamburger-menu" id="hamburgerMenu">
+      <button class="hamburger-menu" id="hamburgerMenu" aria-label="切換選單">
         <i class="fa-solid fa-bars"></i>
       </button>
     </div>
   </header>
 
-  <!-- Main Content Container (SPA Sections) -->
   <main class="content-wrapper">
     
-    <!-- Section 1: Home / Personal Intro (首頁個人簡介) -->
     <section id="home" class="spa-section active">
       <div class="hero-section">
         <div class="hero-content">
@@ -61,7 +55,6 @@
         <div class="hero-visual">
           <div class="avatar-card">
             <div class="avatar-glow"></div>
-            <!-- Interactive visual element or avatar placeholder -->
             <div class="avatar-inner">
               <i class="fa-solid fa-user-astronaut"></i>
             </div>
@@ -96,14 +89,12 @@
       </div>
     </section>
 
-    <!-- Section 2: Courses (本學期上課內容) -->
     <section id="courses" class="spa-section">
       <h2 class="section-title text-center">本學期上課內容與學習歷程</h2>
       <p class="section-desc text-center">這學期我們深入學習了從前端基礎到後端資料庫整合的完整開發技能，以下是我的學習歷程與核心課程主題：</p>
       
       <div class="timeline">
         
-        <!-- Timeline Item 1 -->
         <div class="timeline-item">
           <div class="timeline-badge neon-border-blue">01</div>
           <div class="timeline-panel">
@@ -119,7 +110,6 @@
           </div>
         </div>
 
-        <!-- Timeline Item 2 -->
         <div class="timeline-item">
           <div class="timeline-badge neon-border-purple">02</div>
           <div class="timeline-panel">
@@ -135,7 +125,6 @@
           </div>
         </div>
 
-        <!-- Timeline Item 3 -->
         <div class="timeline-item">
           <div class="timeline-badge neon-border-green">03</div>
           <div class="timeline-panel">
@@ -151,7 +140,6 @@
           </div>
         </div>
 
-        <!-- Timeline Item 4 -->
         <div class="timeline-item">
           <div class="timeline-badge neon-border-red">04</div>
           <div class="timeline-panel">
@@ -170,11 +158,9 @@
       </div>
     </section>
 
-    <!-- Section 3: Game (期末專題 - 水果忍者) -->
     <section id="game" class="spa-section">
       <div class="game-layout">
         
-        <!-- Game Column 1: Info and instructions -->
         <div class="game-info-panel">
           <div class="badge neon-border-red">期末專題</div>
           <h2>HTML5 水果忍者 (Fruit Ninja)</h2>
@@ -208,7 +194,6 @@
           </div>
         </div>
 
-        <!-- Game Column 2: Canvas Area -->
         <div class="game-canvas-wrapper">
           <div class="canvas-glow"></div>
           <div class="canvas-container" id="gameFullscreenTarget">
@@ -218,7 +203,6 @@
             </button>
             <canvas id="gameCanvas" width="800" height="500"></canvas>
             
-            <!-- Game Splash / Start Overlay -->
             <div class="canvas-overlay" id="gameStartOverlay">
               <div class="overlay-content">
                 <div class="logo-animation">
@@ -230,15 +214,13 @@
               </div>
             </div>
 
-            <!-- Game Over Overlay -->
             <div class="canvas-overlay hidden" id="gameOverOverlay">
               <div class="overlay-content animate-pop">
                 <h1 class="game-over-title neon-text-red">GAME OVER</h1>
                 <p>得分：<span class="score-result" id="finalScoreVal">0</span></p>
                 <p>切碎水果：<span id="finalSlicedVal">0</span> | 最大連擊：<span id="finalComboVal">0</span></p>
                 <div class="leaderboard-submission-status" id="submissionStatus">
-                  <!-- JS will insert login prompt or submission result here -->
-                </div>
+                  </div>
                 <div class="btn-group justify-center">
                   <button class="btn btn-primary" id="btnRestartGame"><i class="fa-solid fa-arrow-rotate-right"></i> 再玩一次</button>
                   <a href="#leaderboard" class="btn btn-secondary" id="btnGoToLeaderboard"><i class="fa-solid fa-trophy"></i> 查看排行榜</a>
@@ -251,14 +233,12 @@
       </div>
     </section>
 
-    <!-- Section 4: Leaderboard & Stats (排行榜與個人統計) -->
     <section id="leaderboard" class="spa-section">
       <h2 class="section-title text-center">全球玩家排行榜</h2>
       <p class="section-desc text-center">切碎水果的終極挑戰者！登入並挑戰最高分數，寫下你的傳奇紀錄。</p>
 
       <div class="leaderboard-grid">
         
-        <!-- Left: Leaderboard Table -->
         <div class="leaderboard-card neon-border-purple">
           <div class="card-header">
             <h3><i class="fa-solid fa-list-ol neon-text-purple"></i> 排行榜 Top 20</h3>
@@ -277,7 +257,6 @@
                 </tr>
               </thead>
               <tbody id="leaderboardBody">
-                <!-- Scores loaded via JS -->
                 <tr>
                   <td colspan="6" class="text-center py-4 text-muted">載入中...</td>
                 </tr>
@@ -286,12 +265,11 @@
           </div>
         </div>
 
-        <!-- Right: Player Personal Stats -->
         <div class="stats-card-panel">
           
           <div class="leaderboard-card neon-border-green" id="userStatsCard">
             <div class="card-header">
-              <h3><i class="fa-solid fa-user-chart neon-text-green"></i> 個人統計數據</h3>
+              <h3><i class="fa-solid fa-chart-user neon-text-green"></i> 個人統計數據</h3>
             </div>
             
             <div id="statsContentUnauthenticated" class="stats-unauth text-center py-4">
@@ -347,7 +325,6 @@
 
   </main>
 
-  <!-- Auth Modal (Login / Sign Up) -->
   <div class="modal-overlay hidden" id="authModal">
     <div class="modal-card animate-pop">
       <button class="modal-close" id="btnModalClose">&times;</button>
@@ -358,10 +335,8 @@
       </div>
 
       <div class="modal-body">
-        <!-- Error alert message container -->
         <div class="alert alert-danger hidden" id="authErrorAlert">錯誤訊息</div>
 
-        <!-- Login Form -->
         <form id="formLogin" class="auth-form">
           <div class="form-group">
             <label for="loginUsername">帳號名稱</label>
@@ -380,7 +355,6 @@
           <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-right-to-bracket"></i> 登入</button>
         </form>
 
-        <!-- Signup Form -->
         <form id="formSignup" class="auth-form hidden">
           <div class="form-group">
             <label for="signupUsername">註冊帳號名稱</label>
@@ -409,19 +383,16 @@
     </div>
   </div>
 
-  <!-- Footer -->
   <footer class="footer">
     <div class="footer-container">
       <p>&copy; 2026 南臺科技大學 網頁設計期末專案. 版權所有.</p>
       <div class="footer-links">
-        <a href="https://github.com" target="_blank" id="footerGithubLink"><i class="fa-brands fa-github"></i> GitHub Repo</a>
-        <a href="https://youtube.com" target="_blank" id="footerYoutubeLink"><i class="fa-brands fa-youtube"></i> 介紹影片 (YouTube)</a>
+        <a href="https://github.com" target="_blank" rel="noopener noreferrer" id="footerGithubLink"><i class="fa-brands fa-github"></i> GitHub Repo</a>
+        <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" id="footerYoutubeLink"><i class="fa-brands fa-youtube"></i> 介紹影片 (YouTube)</a>
       </div>
     </div>
   </footer>
 
-  <!-- Scripts -->
-  <script type="module" src="js/firebaseService.js"></script>
   <script type="module" src="js/auth.js"></script>
   <script src="js/leaderboard.js"></script>
   <script src="js/game.js"></script>
