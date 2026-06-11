@@ -176,7 +176,26 @@
             </ul>
           </div>
 
-          <div class="game-control-card">
+         <div class="game-control-card">
+            <!-- 新增：遊戲模式切換選單 -->
+            <div class="game-mode-selector mb-3">
+              <span class="mode-label"><i class="fa-solid fa-wand-magic-sparkles neon-text-purple"></i> 選擇遊戲模式：</span>
+              <div class="mode-options">
+                <label class="mode-radio">
+                  <input type="radio" name="gameMode" value="classic" checked>
+                  <span class="mode-btn">
+                    <i class="fa-solid fa-heart"></i> 經典 3 命
+                  </span>
+                </label>
+                <label class="mode-radio">
+                  <input type="radio" name="gameMode" value="zen">
+                  <span class="mode-btn">
+                    <i class="fa-solid fa-clock"></i> 60秒限時
+                  </span>
+                </label>
+              </div>
+            </div>
+
             <div class="game-stats-hud">
               <div class="hud-item">
                 <span class="hud-label">目前最高分</span>
@@ -192,7 +211,6 @@
               <button class="btn btn-secondary" id="btnToggleSound"><i class="fa-solid fa-volume-up"></i> 音效: 開</button>
             </div>
           </div>
-        </div>
 
         <div class="game-canvas-wrapper">
           <div class="canvas-glow"></div>
