@@ -1394,3 +1394,62 @@ a {
   color: #fff;
   box-shadow: 0 0 12px rgba(157, 78, 221, 0.4); /* 霓虹發光效果 */
 }
+/* ==========================================
+   調整遊戲排版：控制面板移到右邊並放大
+   ========================================== */
+
+/* 1. 確保左右外殼使用 Grid 並排，並調整左右比例 (左邊畫布 60%，右邊控制面板 40%) */
+.game-layout {
+  display: grid !important;
+  grid-template-columns: 1.5fr 1fr !important; /* 調整比例，讓右邊分到更多空間 */
+  gap: 2rem !important;
+  align-items: start !important;
+}
+
+/* 2. 強迫原本在左邊的 info-panel 跑到右邊（Order 設為 2） */
+.game-info-panel {
+  order: 2 !important;
+  width: 100% !important;
+}
+
+/* 3. 強迫原本在右邊的 canvas 跑到左邊（Order 設為 1） */
+.game-canvas-wrapper {
+  order: 1 !important;
+  width: 100% !important;
+}
+
+/* 4. 放大右邊的控制面板與按鈕，讓它更有存在感 */
+.game-control-card {
+  background: rgba(20, 20, 20, 0.6) !important;
+  border: 2px solid #9d4edd !important; /* 給它一個漂亮的紫色霓虹外框 */
+  box-shadow: 0 0 15px rgba(157, 78, 221, 0.2) !important;
+  padding: 1.5rem !important; /* 加大內邊距 */
+  border-radius: 12px !important;
+}
+
+/* 5. 放大模式切換按鈕的文字與高度 */
+.mode-btn {
+  padding: 0.8rem 1.2rem !important; /* 讓按鈕變大 */
+  font-size: 1rem !important;        /* 文字變大 */
+  font-weight: 600 !important;
+}
+
+/* 6. 放大「開始遊戲」與「音效」按鈕 */
+.game-control-card .btn-group .btn {
+  padding: 0.8rem 1.5rem !important;
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+}
+
+/* 7. 當螢幕太小（例如手機版）時，自動彈回單欄上下排版，避免擠壓 */
+@media (max-width: 992px) {
+  .game-layout {
+    grid-template-columns: 1fr !important;
+  }
+  .game-info-panel {
+    order: 1 !important; /* 手機版時控制面板在上面 */
+  }
+  .game-canvas-wrapper {
+    order: 2 !important; /* 手機版時遊戲畫布在下面 */
+  }
+}
