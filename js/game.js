@@ -919,26 +919,29 @@
     const submissionStatus = document.getElementById('submissionStatus');
     if (!submissionStatus) return;
 
-    if (window.appState && window.appState.isLoggedIn) {
-      submissionStatus.innerHTML = `<span class="neon-text-blue"><i class="fa-solid fa-spinner fa-spin"></i> 正在上傳分數至排行榜...</span>`;
-      try {
-        const response = await fetch('/api/leaderboard/submit', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${window.appState.token}`
-          },
-          body: JSON.stringify({ score: score, sliced_fruits: slicedCount, max_combo: maxCombo, mode: gameMode })
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || '上傳失敗');
-        submissionStatus.innerHTML = `<span class="neon-text-green"><i class="fa-solid fa-cloud-arrow-up"></i> 分數上傳成功！</span>`;
-        if (typeof window.fetchLeaderboard === 'function') window.fetchLeaderboard();
-      } catch (err) {
+    if (typeof window.submitLeaderboardScore !== 'function') {
+      submissionStatus.innerHTML = `<span class="neon-text-red"><i class="fa-solid fa-circle-xmark"></i> 排行榜模組尚未載入，請確認 leaderboard.js 已以 type="module" 載入。</span>`;
+      return;
+    }
+
+    submissionStatus.innerHTML = `<span class="neon-text-blue"><i class="fa-solid fa-spinner fa-spin"></i> 正在上傳分數至排行榜...</span>`;
+    try {
+      await window.submitLeaderboardScore({
+        score: score,
+        sliced_fruits: slicedCount,
+        max_combo: maxCombo,
+        mode: gameMode
+      });
+
+      submissionStatus.innerHTML = `<span class="neon-text-green"><i class="fa-solid fa-cloud-arrow-up"></i> 分數上傳成功！</span>`;
+      if (typeof window.fetchLeaderboard === 'function') window.fetchLeaderboard();
+      if (typeof window.fetchUserStats === 'function') window.fetchUserStats();
+    } catch (err) {
+      if (err.code === 'NEED_LOGIN') {
+        submissionStatus.innerHTML = `<span class="text-muted"><i class="fa-solid fa-right-to-bracket"></i> 登入帳號即可自動上傳高分！</span>`;
+      } else {
         submissionStatus.innerHTML = `<span class="neon-text-red"><i class="fa-solid fa-circle-xmark"></i> 上傳失敗：${err.message}</span>`;
       }
-    } else {
-      submissionStatus.innerHTML = `<span class="text-muted"><i class="fa-solid fa-right-to-bracket"></i> 登入帳號即可自動上傳高分！</span>`;
     }
   }
 
